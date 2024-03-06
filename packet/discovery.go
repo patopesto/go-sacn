@@ -32,6 +32,10 @@ func NewDiscoveryPacket() *DiscoveryPacket {
     return &DiscoveryPacket{}
 }
 
+func (d *DiscoveryPacket) GetType() SACNPacketType {
+    return PacketTypeDiscovery
+}
+
 func (d *DiscoveryPacket) UnmarshalBinary(b []byte) error {
     // Root layer
     err := d.RootLayer.unmarshal(b)

@@ -23,6 +23,10 @@ func NewSyncPacket() *SyncPacket {
     return &SyncPacket{}
 }
 
+func (d *SyncPacket) GetType() SACNPacketType {
+    return PacketTypeSync
+}
+
 func (d *SyncPacket) UnmarshalBinary(b []byte) error {
     // Root layer
     err := d.RootLayer.unmarshal(b)

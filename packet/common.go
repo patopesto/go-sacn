@@ -24,10 +24,19 @@ const (
 var packetIdentifierE117 = [12]byte{0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00}
 
 
+type SACNPacketType int
+
+const (
+	PacketTypeData SACNPacketType = iota
+	PacketTypeSync
+	PacketTypeDiscovery
+)
+
 type SACNPacket interface {
 	// encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
 	validate() error
+	GetType() SACNPacketType
 }
 
 

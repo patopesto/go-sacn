@@ -38,6 +38,10 @@ func NewDataPacket() *DataPacket {
 	return &DataPacket{}
 }
 
+func (d *DataPacket) GetType() SACNPacketType {
+	return PacketTypeData
+}
+
 func (d *DataPacket) UnmarshalBinary(b []byte) error {
 	// Root layer
 	err := d.RootLayer.unmarshal(b)

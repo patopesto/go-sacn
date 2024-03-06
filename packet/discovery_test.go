@@ -14,7 +14,7 @@ func TestDiscoveryPacketUnmarshal(t *testing.T) {
         err  error
     }{
         {
-            name: "Discovery packet with 2 universes", // With 2 universes on page 0
+            name: "Discovery packet with 2 universes", // With 2 universes on page 3
             p: DiscoveryPacket{
                 RootLayer: RootLayer{
                     PreambleSize: 0x0010,
