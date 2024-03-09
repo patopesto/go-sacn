@@ -136,6 +136,12 @@ func (r *Receiver) handlePacket(p packet.SACNPacket) {
 			r.terminateUniverse(d.Universe)
 			return
 		}
+		if d.SyncAddress > 0 {
+			_, ok := r.streamTerminated[d.SyncAddress]
+			if !ok { // only join sync universe if not already 
+				r.JoinUniverse(d.SyncAddress)
+			}
+		}
 	case packet.PacketTypeSync:
 		s, _ := p.(*packet.SyncPacket)
 		r.storeLastPacket(s.SyncAddress, s)

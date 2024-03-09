@@ -5,7 +5,6 @@ import (
     "errors"
 )
 
-
 type SyncPacket struct {
     // Inherit RootLayer
     RootLayer

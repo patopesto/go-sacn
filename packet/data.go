@@ -1,13 +1,9 @@
 package packet
 
 import (
-	// "bytes"
-	// "encoding"
 	"encoding/binary"
 	"errors"
 )
-
-// var _ SACNPacket = &DataPacket{}
 
 type DataPacket struct {
 	// Inherit RootLayer

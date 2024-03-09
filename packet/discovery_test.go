@@ -32,7 +32,7 @@ func TestDiscoveryPacketUnmarshal(t *testing.T) {
                 UDLVector: VECTOR_UNIVERSE_DISCOVERY_UNIVERSE_LIST,
                 Page: 3,
                 Last: 5,
-                Universes: [1024]byte{0x00, 0x01, 0x00, 0x64},
+                Universes: [512]uint16{0x01, 0x64},
             },
             b: [1144]byte{
                 0x00, 0x10, 0x00, 0x00, 0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00, 0x70, 0x6c,
@@ -64,7 +64,7 @@ func TestDiscoveryPacketUnmarshal(t *testing.T) {
                 UDLVector: VECTOR_UNIVERSE_DISCOVERY_UNIVERSE_LIST,
                 Page: 0,
                 Last: 0,
-                Universes: [1024]byte{},
+                Universes: [512]uint16{},
             },
             b: [1144]byte{
                 0x00, 0x10, 0x00, 0x00, 0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00, 0x70, 0x6c,

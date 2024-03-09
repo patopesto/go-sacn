@@ -1,13 +1,9 @@
 package packet
 
 import (
-    // "bytes"
-    // "encoding"
     "encoding/binary"
     "errors"
 )
-
-// var _ SACNPacket = &DataPacket{}
 
 type DiscoveryPacket struct {
     // Inherit RootLayer
@@ -24,7 +20,7 @@ type DiscoveryPacket struct {
     UDLVector        uint32
     Page             uint8
     Last             uint8
-    Universes        [1024]byte
+    Universes        [512]uint16
 }
 
 func NewDiscoveryPacket() *DiscoveryPacket {
@@ -56,8 +52,11 @@ func (d *DiscoveryPacket) UnmarshalBinary(b []byte) error {
     d.UDLVector = binary.BigEndian.Uint32(b[114:118])
     d.Page = b[118]
     d.Last = b[119]
-    l := d.UDLLength & 0x0FFF - 6
-    copy(d.Universes[:], b[120:120+l])
+
+    l := int(d.UDLLength & 0x0FFF - 8)
+    for i, j := 0, 120; j < 120+l; i, j = i+1, j+2 {
+        d.Universes[i] = binary.BigEndian.Uint16(b[j:j+2]) 
+    }
 
     return d.validate()
 }
@@ -82,4 +81,8 @@ func (d *DiscoveryPacket) validate() error {
     }
 
     return nil
+}
+
+func (d *DiscoveryPacket) GetNumUniverses() int {
+    return int(d.UDLLength & 0x0FFF - 8) / 2
 }
