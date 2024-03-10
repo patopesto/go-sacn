@@ -24,12 +24,12 @@ func main() {
 	}
 }
 
-func dataPacketCallback(p packet.SACNPacket) {
+func dataPacketCallback(p packet.SACNPacket, source string) {
 	d, ok := p.(*packet.DataPacket)
 	if ok == false {
 		return
 	}
-	fmt.Printf("Received Data Packet for universe %d\n", d.Universe)
+	fmt.Printf("Received Data Packet for universe %d from %s\n", d.Universe, source)
 }
 
 func universeTerminatedCallback(universe uint16) {

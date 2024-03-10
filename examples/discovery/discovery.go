@@ -23,7 +23,7 @@ func main() {
 	}
 }
 
-func discoveryPacketCallback(p packet.SACNPacket) {
+func discoveryPacketCallback(p packet.SACNPacket, source string) {
 	d, ok := p.(*packet.DiscoveryPacket)
 	if ok == false {
 		return

@@ -12,7 +12,7 @@ import (
 	"gitlab.com/patopest/go-sacn/packet"
 )
 
-type PacketCallbackFunc func(p packet.SACNPacket)
+type PacketCallbackFunc func(p packet.SACNPacket, source string)
 type TerminationCallbackFunc func(universe uint16)
 
 type Receiver struct {
@@ -118,13 +118,13 @@ func (r *Receiver) recvLoop() {
 				continue
 			}
 
-			go r.handlePacket(p)
+			go r.handlePacket(p, source.String())
 		}
 
 	}
 }
 
-func (r *Receiver) handlePacket(p packet.SACNPacket) {
+func (r *Receiver) handlePacket(p packet.SACNPacket, source string) {
 	r.checkTimeouts()
 	packetType := p.GetType()
 
@@ -151,7 +151,7 @@ func (r *Receiver) handlePacket(p packet.SACNPacket) {
 
 	callback := r.packetCallbacks[packetType]
 	if callback != nil {
-		go callback(p)
+		go callback(p, source)
 	}
 }
 
