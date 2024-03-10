@@ -1,38 +1,36 @@
 package main
 
 import (
-    "fmt"
-    "time"
-    "net"
+	"fmt"
+	"net"
+	"time"
 
-    "github.com/patopesto/go-sacn"
-    "github.com/patopesto/go-sacn/packet"
+	"gitlab.com/patopest/go-sacn"
+	"gitlab.com/patopest/go-sacn/packet"
 )
 
-
 func main() {
-    fmt.Println("hello")
+	fmt.Println("hello")
 
-    itf, _ := net.InterfaceByName("en0") // specific to your machine
-    receiver := sacn.NewReceiver(itf)
-    receiver.JoinUniverse(sacn.DISCOVERY_UNIVERSE)
-    receiver.RegisterPacketCallback(packet.PacketTypeDiscovery, discoveryPacketCallback)
-    receiver.Start()
+	itf, _ := net.InterfaceByName("en0") // specific to your machine
+	receiver := sacn.NewReceiver(itf)
+	receiver.JoinUniverse(sacn.DISCOVERY_UNIVERSE)
+	receiver.RegisterPacketCallback(packet.PacketTypeDiscovery, discoveryPacketCallback)
+	receiver.Start()
 
-    for {
-        time.Sleep(1)
-    }
+	for {
+		time.Sleep(1)
+	}
 }
 
 func discoveryPacketCallback(p packet.SACNPacket) {
-    d, ok := p.(*packet.DiscoveryPacket)
-    if ok == false {
-        return
-    }
+	d, ok := p.(*packet.DiscoveryPacket)
+	if ok == false {
+		return
+	}
 
-    fmt.Printf("Discovered universes from %s:\n", string(d.SourceName[:]))
-    for i := 0; i < d.GetNumUniverses(); i++ {
-        fmt.Printf("%d, ", d.Universes[i])
-    }
+	fmt.Printf("Discovered universes from %s:\n", string(d.SourceName[:]))
+	for i := 0; i < d.GetNumUniverses(); i++ {
+		fmt.Printf("%d, ", d.Universes[i])
+	}
 }
-

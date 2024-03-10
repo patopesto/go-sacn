@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/ipv4"
 
 	"github.com/libp2p/go-reuseport"
-	"github.com/patopesto/go-sacn/packet"
+	"gitlab.com/patopest/go-sacn/packet"
 )
 
 type PacketCallbackFunc func(p packet.SACNPacket)
@@ -23,13 +23,13 @@ type Receiver struct {
 	lastPackets      map[uint16]networkPacket
 	streamTerminated map[uint16]bool
 
-	packetCallbacks map[packet.SACNPacketType]PacketCallbackFunc
+	packetCallbacks     map[packet.SACNPacketType]PacketCallbackFunc
 	terminationCallback TerminationCallbackFunc
 }
 
 type networkPacket struct {
-	ts 		time.Time
-	packet 	packet.SACNPacket
+	ts     time.Time
+	packet packet.SACNPacket
 	// source 	net.UDPAddr
 }
 
@@ -46,7 +46,7 @@ func NewReceiver(itf *net.Interface) *Receiver {
 	r.itf = itf
 
 	r.lastPackets = make(map[uint16]networkPacket)
-	r.streamTerminated = make( map[uint16]bool)
+	r.streamTerminated = make(map[uint16]bool)
 	r.packetCallbacks = make(map[packet.SACNPacketType]PacketCallbackFunc)
 
 	return r
@@ -132,13 +132,13 @@ func (r *Receiver) handlePacket(p packet.SACNPacket) {
 	case packet.PacketTypeData:
 		d, _ := p.(*packet.DataPacket)
 		r.storeLastPacket(d.Universe, d)
-		if (d.Options & 1 << 6) > 0  { // Bit 6: Stream Terminated
+		if (d.Options & 1 << 6) > 0 { // Bit 6: Stream Terminated
 			r.terminateUniverse(d.Universe)
 			return
 		}
 		if d.SyncAddress > 0 {
 			_, ok := r.streamTerminated[d.SyncAddress]
-			if !ok { // only join sync universe if not already 
+			if !ok { // only join sync universe if not already
 				r.JoinUniverse(d.SyncAddress)
 			}
 		}
@@ -157,15 +157,15 @@ func (r *Receiver) handlePacket(p packet.SACNPacket) {
 
 func (r *Receiver) storeLastPacket(universe uint16, p packet.SACNPacket) {
 	r.lastPackets[universe] = networkPacket{
-		ts:   	 time.Now(),
-		packet:  p,
+		ts:     time.Now(),
+		packet: p,
 	}
 	r.streamTerminated[universe] = false
 }
 
 func (r *Receiver) checkTimeouts() {
 	for universe, last := range r.lastPackets {
-		if time.Since(last.ts) > time.Millisecond * NETWORK_DATA_LOSS_TIMEOUT {
+		if time.Since(last.ts) > time.Millisecond*NETWORK_DATA_LOSS_TIMEOUT {
 			r.terminateUniverse(universe)
 		}
 	}

@@ -47,7 +47,7 @@ func (d *DataPacket) UnmarshalBinary(b []byte) error {
 
 	// Framing layer
 	d.FrameLength = binary.BigEndian.Uint16(b[38:40])
-	if d.FrameLength & 0x0FFF > uint16(len(b)) {
+	if d.FrameLength&0x0FFF > uint16(len(b)) {
 		return errors.New("Incorrect packet size")
 	}
 	d.FrameVector = binary.BigEndian.Uint32(b[40:44])

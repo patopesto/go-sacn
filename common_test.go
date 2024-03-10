@@ -41,33 +41,33 @@ func TestuniverseToAddress(t *testing.T) {
 
 func TestSequence(t *testing.T) {
 	tests := []struct {
-		A 		 uint8
-		B 		 uint8
+		A        uint8
+		B        uint8
 		expected bool
 	}{
 		{
-			A: 100,
-			B: 110,
+			A:        100,
+			B:        110,
 			expected: true,
 		},
 		{
-			A: 255,
-			B: 1,
+			A:        255,
+			B:        1,
 			expected: true,
 		},
 		{
-			A: 101,
-			B: 100,
+			A:        101,
+			B:        100,
 			expected: false,
 		},
 		{
-			A: 100,
-			B: 81,
+			A:        100,
+			B:        81,
 			expected: false,
 		},
 		{
-			A: 100,
-			B: 80,
+			A:        100,
+			B:        80,
 			expected: true,
 		},
 	}

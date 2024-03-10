@@ -17,12 +17,11 @@ const (
 	VECTOR_E131_EXTENDED_SYNCHRONIZATION = 0x0001
 	VECTOR_E131_EXTENDED_DISCOVERY       = 0x0002
 
-	VECTOR_DMP_SET_PROPERTY = 0x02
+	VECTOR_DMP_SET_PROPERTY                 = 0x02
 	VECTOR_UNIVERSE_DISCOVERY_UNIVERSE_LIST = 0x0001
 )
 
 var packetIdentifierE117 = [12]byte{0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00}
-
 
 type SACNPacketType int
 
@@ -38,7 +37,6 @@ type SACNPacket interface {
 	validate() error
 	GetType() SACNPacketType
 }
-
 
 type RootLayer struct {
 	PreambleSize        uint16

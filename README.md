@@ -12,7 +12,7 @@ Fully supports and complies to the specification:
 ## Usage
 
 ```shell
-go get github.com/patopesto/go-sacn
+go get gitlab.com/patopest/go-sacn
 ```
 
 - Receiver
@@ -25,8 +25,8 @@ import (
     "time"
     "net"
 
-    "github.com/patopesto/go-sacn"
-    "github.com/patopesto/go-sacn/packet"
+    "gitlab.com/patopest/go-sacn"
+    "gitlab.com/patopest/go-sacn/packet"
 )
 
 func main() {

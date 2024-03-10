@@ -1,14 +1,14 @@
 package packet
 
 import (
-    // "fmt"
-    "testing"
-    "reflect"
+	// "fmt"
+	"reflect"
+	"testing"
 )
 
 func TestDataPacketUnmarshal(t *testing.T) {
-    tests := []struct {
-    	name string
+	tests := []struct {
+		name string
 		p    DataPacket
 		b    [1024]byte
 		err  error
@@ -17,28 +17,28 @@ func TestDataPacketUnmarshal(t *testing.T) {
 			name: "Full packet", // with empty CID and SourceName
 			p: DataPacket{
 				RootLayer: RootLayer{
-					PreambleSize: 0x0010,
-					PostambleSize: 0x0000,
+					PreambleSize:        0x0010,
+					PostambleSize:       0x0000,
 					ACNPacketIdentifier: packetIdentifierE117,
 					RootLength:          0x726E,
 					RootVector:          VECTOR_ROOT_E131_DATA,
 					CID:                 [16]byte{},
 				},
-				FrameLength: 0x7258,
-				FrameVector: VECTOR_E131_DATA_PACKET,
-				SourceName: [64]byte{},
-				Priority: 100,
-				SyncAddress: 0,
-				Sequence: 1,
-				Options: 0,
-				Universe: 1,
-				DMPLength: 0x720B,
-				DMPVector: VECTOR_DMP_SET_PROPERTY,
-				Format: 0xA1,
-				PropertyAddress: 0,
+				FrameLength:      0x7258,
+				FrameVector:      VECTOR_E131_DATA_PACKET,
+				SourceName:       [64]byte{},
+				Priority:         100,
+				SyncAddress:      0,
+				Sequence:         1,
+				Options:          0,
+				Universe:         1,
+				DMPLength:        0x720B,
+				DMPVector:        VECTOR_DMP_SET_PROPERTY,
+				Format:           0xA1,
+				PropertyAddress:  0,
 				AddressIncrement: 1,
-				Length: 1+512,
-				Data: [513]byte{0x00, 0xff, 0xff, 0xff},
+				Length:           1 + 512,
+				Data:             [513]byte{0x00, 0xff, 0xff, 0xff},
 			},
 			b: [1024]byte{
 				0x00, 0x10, 0x00, 0x00, 0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00, 0x72, 0x6e,
@@ -84,28 +84,28 @@ func TestDataPacketUnmarshal(t *testing.T) {
 			name: "Small packet", // Packet with not 512 Data bytes
 			p: DataPacket{
 				RootLayer: RootLayer{
-					PreambleSize: 0x0010,
-					PostambleSize: 0x0000,
+					PreambleSize:        0x0010,
+					PostambleSize:       0x0000,
 					ACNPacketIdentifier: packetIdentifierE117,
 					RootLength:          0x726E,
 					RootVector:          VECTOR_ROOT_E131_DATA,
 					CID:                 [16]byte{},
 				},
-				FrameLength: 0x7258,
-				FrameVector: VECTOR_E131_DATA_PACKET,
-				SourceName: [64]byte{},
-				Priority: 100,
-				SyncAddress: 0,
-				Sequence: 1,
-				Options: 0,
-				Universe: 1,
-				DMPLength: 0x720B,
-				DMPVector: VECTOR_DMP_SET_PROPERTY,
-				Format: 0xA1,
-				PropertyAddress: 0,
+				FrameLength:      0x7258,
+				FrameVector:      VECTOR_E131_DATA_PACKET,
+				SourceName:       [64]byte{},
+				Priority:         100,
+				SyncAddress:      0,
+				Sequence:         1,
+				Options:          0,
+				Universe:         1,
+				DMPLength:        0x720B,
+				DMPVector:        VECTOR_DMP_SET_PROPERTY,
+				Format:           0xA1,
+				PropertyAddress:  0,
 				AddressIncrement: 1,
-				Length: 1+10,
-				Data: [513]byte{0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff},
+				Length:           1 + 10,
+				Data:             [513]byte{0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff},
 			},
 			b: [1024]byte{
 				0x00, 0x10, 0x00, 0x00, 0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00, 0x72, 0x6e,
@@ -138,4 +138,3 @@ func TestDataPacketUnmarshal(t *testing.T) {
 	}
 
 }
-

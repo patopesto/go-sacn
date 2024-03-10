@@ -1,4 +1,4 @@
-module github.com/patopesto/go-sacn
+module gitlab.com/patopest/go-sacn
 
 go 1.22.0
 
