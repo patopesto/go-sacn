@@ -105,12 +105,13 @@ func (r *Receiver) recvLoop() {
 				log.Panic(fmt.Sprintf("Could not set deadline on socket: %v", err))
 			}
 
-			n, _, source, _ := r.conn.ReadFrom(buf)
-			if source == nil { // timeout
+			n, _, addr, _ := r.conn.ReadFrom(buf)
+			if addr == nil { // timeout
 				r.checkTimeouts()
 				continue
 			}
 
+			source := addr.(*net.UDPAddr)
 			fmt.Printf("Received %d bytes from %s\n", n, source.String())
 			var p packet.SACNPacket
 			p, err = packet.Unmarshal(buf[:n])
@@ -118,7 +119,7 @@ func (r *Receiver) recvLoop() {
 				continue
 			}
 
-			go r.handlePacket(p, source.String())
+			go r.handlePacket(p, source.IP.String())
 		}
 
 	}
