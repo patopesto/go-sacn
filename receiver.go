@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 	"time"
-	// "errors"
+	"errors"
 	"golang.org/x/net/ipv4"
 
 	"github.com/libp2p/go-reuseport"
@@ -63,22 +63,23 @@ func (r *Receiver) Stop() {
 	close(r.stop)
 }
 
-func (r *Receiver) JoinUniverse(universe uint16) {
+func (r *Receiver) JoinUniverse(universe uint16) error {
 	if universe == 0 || (universe > 64000 && universe != DISCOVERY_UNIVERSE) { // Section 9.1.1 of spec document
-		log.Panic("Invalid universe number: ", universe)
-		return
+		return errors.New(fmt.Sprintf("Invalid universe number: %d\n", universe))
 	}
 	err := r.conn.JoinGroup(r.itf, universeToAddress(universe))
 	if err != nil {
-		log.Panic(fmt.Sprintf("Could not join multicast group for universe %v: %v", universe, err))
+		return errors.New(fmt.Sprintf("Could not join multicast group for universe %v: %v", universe, err))
 	}
+	return nil
 }
 
-func (r *Receiver) LeaveUniverse(universe uint16) {
+func (r *Receiver) LeaveUniverse(universe uint16) error {
 	err := r.conn.LeaveGroup(r.itf, universeToAddress(universe))
 	if err != nil {
-		log.Panic(fmt.Sprintf("Could not leave multicast group for universe %v: %v", universe, err))
+		return errors.New(fmt.Sprintf("Could not leave multicast group for universe %v: %v", universe, err))
 	}
+	return nil
 }
 
 func (r *Receiver) RegisterPacketCallback(packetType packet.SACNPacketType, callback PacketCallbackFunc) {
