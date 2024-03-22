@@ -113,14 +113,14 @@ func (r *Receiver) recvLoop() {
 			}
 
 			source := addr.(*net.UDPAddr)
-			fmt.Printf("Received %d bytes from %s\n", n, source.String())
+			// fmt.Printf("Received %d bytes from %s\n", n, source.String())
 			var p packet.SACNPacket
 			p, err = packet.Unmarshal(buf[:n])
 			if err != nil {
 				continue
 			}
 
-			go r.handlePacket(p, source.IP.String())
+			r.handlePacket(p, source.IP.String())
 		}
 
 	}
