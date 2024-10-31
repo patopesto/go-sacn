@@ -32,7 +32,7 @@ const (
 )
 
 type SACNPacket interface {
-	// encoding.BinaryMarshaler
+	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
 	validate() error
 	GetType() SACNPacketType

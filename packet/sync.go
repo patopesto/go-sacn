@@ -1,8 +1,10 @@
 package packet
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 type SyncPacket struct {
@@ -18,8 +20,19 @@ type SyncPacket struct {
 }
 
 func NewSyncPacket() *SyncPacket {
-	// TODO: fill up default values
-	return &SyncPacket{}
+	return &SyncPacket{
+		// Root Layer
+		RootLayer: RootLayer{
+			PreambleSize:        0x0010,
+			PostambleSize:       0x0000,
+			ACNPacketIdentifier: packetIdentifierE117,
+			RootVector:          VECTOR_ROOT_E131_EXTENDED,
+		},
+
+		// Framing Layer
+		FrameVector: VECTOR_E131_EXTENDED_SYNCHRONIZATION,
+		FrameLength: 0x700B, // static length
+	}
 }
 
 func (d *SyncPacket) GetType() SACNPacketType {
@@ -36,13 +49,21 @@ func (d *SyncPacket) UnmarshalBinary(b []byte) error {
 	// Framing layer
 	d.FrameLength = binary.BigEndian.Uint16(b[38:40])
 	if d.FrameLength&0x0FFF > uint16(len(b)) {
-		return errors.New("Incorrect packet size")
+		return errors.New(fmt.Sprintf("Incorrect packet size %d != %d", d.FrameLength&0x0FFF, len(b)))
 	}
 	d.FrameVector = binary.BigEndian.Uint32(b[40:44])
 	d.Sequence = b[44]
 	d.SyncAddress = binary.BigEndian.Uint16(b[45:47])
 
 	return d.validate()
+}
+
+func (d *SyncPacket) MarshalBinary() ([]byte, error) {
+	var buf bytes.Buffer
+	if err := binary.Write(&buf, binary.BigEndian, d); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (d *SyncPacket) validate() error {

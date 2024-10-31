@@ -1,12 +1,12 @@
 package sacn
 
 import (
+	"errors"
 	"fmt"
+	"golang.org/x/net/ipv4"
 	"log"
 	"net"
 	"time"
-	"errors"
-	"golang.org/x/net/ipv4"
 
 	"github.com/libp2p/go-reuseport"
 	"gitlab.com/patopest/go-sacn/packet"
