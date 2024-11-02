@@ -91,3 +91,16 @@ func TestSyncPacketMarshal(t *testing.T) {
 		}
 	}
 }
+
+// func TestSyncPacketData(t *testing.T) {
+// 	for _, tt := range sync_tests {
+// 		s := NewSyncPacket()
+// 		copy(s.CID[:], tt.p.CID[:])
+// 		s.SyncAddress = tt.p.SyncAddress
+// 		s.Sequence = tt.p.Sequence
+
+// 		if !reflect.DeepEqual(tt.p, s) {
+// 			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v]\n-  got: [%#v]", tt.name, tt.p, s)
+// 		}
+// 	}
+// }

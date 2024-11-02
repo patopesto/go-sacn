@@ -12,9 +12,14 @@ import (
 	"gitlab.com/patopest/go-sacn/packet"
 )
 
+// PacketCallbackFunc is the function type to be used with [Receiver.RegisterPacketCallback].
+// The arguments are the latest received [packet.SACNPacket] on any universe and the source IP that sent the packet as a string.
 type PacketCallbackFunc func(p packet.SACNPacket, source string)
+// TerminationCallbackFunc is the function type to be used with [Receiver.RegisterTerminationCallback].
+// The universe argument is the universe number which entered Network Data Loss conditions.
 type TerminationCallbackFunc func(universe uint16)
 
+// A sACN Receiver. Use [NewReceiver] to create a receiver.
 type Receiver struct {
 	conn *ipv4.PacketConn
 	itf  *net.Interface
@@ -33,6 +38,7 @@ type networkPacket struct {
 	// source 	net.UDPAddr
 }
 
+// NewReceiver creates a new receiver bound to the provided interface
 func NewReceiver(itf *net.Interface) *Receiver {
 	r := &Receiver{}
 
@@ -52,6 +58,7 @@ func NewReceiver(itf *net.Interface) *Receiver {
 	return r
 }
 
+// Starts the receiver
 func (r *Receiver) Start() {
 
 	r.stop = make(chan bool)
@@ -59,12 +66,16 @@ func (r *Receiver) Start() {
 	go r.recvLoop()
 }
 
+// Stops the receiver
 func (r *Receiver) Stop() {
 	close(r.stop)
 }
 
+// JoinUniverse starts listening for packets sent on the provided universe.  
+// Universe number shall be in the range 1 to 63999.  
+// Joins the multicast group associated with the universe number.  
 func (r *Receiver) JoinUniverse(universe uint16) error {
-	if universe == 0 || (universe > 64000 && universe != DISCOVERY_UNIVERSE) { // Section 9.1.1 of spec document
+	if universe == 0 || (universe > 64000 && universe != DISCOVERY_UNIVERSE) { // Section 9.1.1 of ANSI E1.31—2018
 		return errors.New(fmt.Sprintf("Invalid universe number: %d\n", universe))
 	}
 	err := r.conn.JoinGroup(r.itf, universeToAddress(universe))
@@ -74,6 +85,8 @@ func (r *Receiver) JoinUniverse(universe uint16) error {
 	return nil
 }
 
+// Stops listening for packets sent on a universe.  
+// Leaves the multicast groups associated with the universe number.  
 func (r *Receiver) LeaveUniverse(universe uint16) error {
 	err := r.conn.LeaveGroup(r.itf, universeToAddress(universe))
 	if err != nil {
@@ -82,10 +95,17 @@ func (r *Receiver) LeaveUniverse(universe uint16) error {
 	return nil
 }
 
+// RegisterPacketCallback registers a callback of type PacketCallbackFunc.
+// The callback will be triggered on reception of a new packet of type [packet.SACNPacketType] on any universe
 func (r *Receiver) RegisterPacketCallback(packetType packet.SACNPacketType, callback PacketCallbackFunc) {
 	r.packetCallbacks[packetType] = callback
 }
 
+// RegisterTerminationCallback registers a callback for when a universe enters Network Data Loss conditions as defined in section 6.7.1 of ANSI E1.31—2018.
+//
+// Network Data Loss conditions:
+// 	- Did not receive data for [NETWORK_DATA_LOSS_TIMEOUT].
+// 	- Data packet contained the StreamTerminated bit in the [packet.DataPacket] Options field.
 func (r *Receiver) RegisterTerminationCallback(callback TerminationCallbackFunc) {
 	r.terminationCallback = callback
 }

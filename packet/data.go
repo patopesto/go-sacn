@@ -10,8 +10,10 @@ import (
 	"github.com/spf13/cast"
 )
 
+// DataPacket is used to send a universe's DMX512-A data over the network. Most commonly used packet.
+// It implements the [SACNPacket] interface.
 type DataPacket struct {
-	// Inherit RootLayer
+	// inherits RootLayer
 	RootLayer
 
 	// Framing layer
@@ -34,6 +36,8 @@ type DataPacket struct {
 	Data             [513]byte
 }
 
+// Returns a new [DataPacket] with sensible defaults and empty DMX data.
+// Use the Get and Set helpers to fill packet with data before sending it out.
 func NewDataPacket() *DataPacket {
 	return &DataPacket{ // Default packet with no data
 		// Root Layer
@@ -60,15 +64,18 @@ func NewDataPacket() *DataPacket {
 	}
 }
 
+// Returns the packet type
 func (d *DataPacket) GetType() SACNPacketType {
 	return PacketTypeData
 }
 
-// ---- Helpers for specific packet data ----
+// Returns the DMX512-A data of the packet (up to 512 bytes). Does not include the Start Code (byte 0 of a DMX packet).
 func (d *DataPacket) GetData() []byte {
 	return d.Data[1:]
 }
 
+// Set DMX512-A data. Does not include the Start Code (byte 0 of a DMX packet).
+// Overwrites any existing data in the packet. Shall not be more than 512 bytes.
 func (d *DataPacket) SetData(data []byte) {
 	length := uint16(len(data))
 	if length > 512 {
@@ -89,19 +96,23 @@ func (d *DataPacket) computeLength(data_length uint16) {
 	d.DMPLength = 0x7000 | (length - 115)
 }
 
+// Returns the Start Code (byte 0 of a DMX packet). Value should be 0 for normal DMX512-A operations.
 func (d *DataPacket) GetStartCode() uint8 {
 	return d.Data[0]
 }
 
+// Sets the Start Code. (byte 0 of a DMX packet).
 func (d *DataPacket) SetStartCode(code uint8) {
 	d.Data[0] = code
 }
 
+// Returns the user-assigned source name defined in the packet as a string.
 func (d *DataPacket) GetSourceName() string {
 	name := string(d.SourceName[:])
 	return strings.Trim(name, "\x00") // remove trailing zeros from array
 }
 
+// Sets the source name of the packet. Shall not be more than 64 characters.
 func (d *DataPacket) SetSourceName(name string) error {
 	if len(name) > 64 {
 		return errors.New("Source name has to be < 64 bytes")
@@ -110,30 +121,37 @@ func (d *DataPacket) SetSourceName(name string) error {
 	return nil
 }
 
+// Returns true if the Preview_Data (bit 7) is set in the Options of the packet. See Section 6.2.6 of ANSI E1.31—2018
 func (d *DataPacket) IsPreviewData() bool {
 	return cast.ToBool(d.Options >> 7)
 }
 
+// Sets the Preview_Data (bit 7) in the Options of the packet. See Section 6.2.6 of ANSI E1.31—2018
 func (d *DataPacket) SetPreviewData(value bool) {
 	d.Options |= cast.ToUint8(value) << 7
 }
 
+// Returns true if the Stream_Terminated (bit 6) is set in the Options of the packet. See Section 6.2.6 of ANSI E1.31—2018
 func (d *DataPacket) IsStreamTerminated() bool {
 	return cast.ToBool(d.Options >> 6)
 }
 
+// Sets the Stream_Terminated (bit 6) in the Options of the packet. See Section 6.2.6 of ANSI E1.31—2018
 func (d *DataPacket) SetStreamTerminated(value bool) {
 	d.Options |= cast.ToUint8(value) << 6
 }
 
+// Returns true if the Force_Synchronisation (bit 5) is set in the Options of the packet. See Section 6.2.6 of ANSI E1.31—2018
 func (d *DataPacket) IsForceSynchronisation() bool {
 	return cast.ToBool(d.Options >> 5)
 }
 
+// Sets the Force_Synchronisation (bit 5) in the Options of the packet. See Section 6.2.6 of ANSI E1.31—2018
 func (d *DataPacket) SetForceSynchronisation(value bool) {
 	d.Options |= cast.ToUint8(value) << 5
 }
 
+// Implements [encoding.BinaryUnmarshaler] for the [DataPacket].
 func (d *DataPacket) UnmarshalBinary(b []byte) error {
 	// Root layer
 	err := d.RootLayer.unmarshal(b)
@@ -172,6 +190,7 @@ func (d *DataPacket) UnmarshalBinary(b []byte) error {
 	return d.validate()
 }
 
+// Implements [encoding.BinaryMarshaler] for the [DataPacket].
 func (d *DataPacket) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 	if err := binary.Write(&buf, binary.BigEndian, d); err != nil {

@@ -8,7 +8,7 @@ import (
 	// "fmt"
 )
 
-// From ANSI E1.31—2018 Appendix A.
+// Constants defined in ANSI E1.31—2018 Appendix A.
 const (
 	VECTOR_ROOT_E131_DATA     = 0x0004
 	VECTOR_ROOT_E131_EXTENDED = 0x0008
@@ -23,21 +23,25 @@ const (
 
 var packetIdentifierE117 = [12]byte{0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00}
 
-type SACNPacketType int
+// The [SACNPacket] type return by GetType of [SACNPacket]
+type SACNPacketType = int
 
+// Enum of all the different [SACNPacket] types
 const (
 	PacketTypeData SACNPacketType = iota
 	PacketTypeSync
 	PacketTypeDiscovery
 )
 
+// The packet interface that all sACN packet types implement.
 type SACNPacket interface {
-	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
+	encoding.BinaryMarshaler
 	validate() error
 	GetType() SACNPacketType
 }
 
+// The ACN RootLayer Protocol found in all packet types. Defined in Section 5 of ANSI E1.31—2018
 type RootLayer struct {
 	PreambleSize        uint16
 	PostambleSize       uint16
@@ -75,6 +79,7 @@ func (r *RootLayer) validate() error {
 	return nil
 }
 
+// Unmarshals any byte array to a [SACNPacket]
 func Unmarshal(b []byte) (p SACNPacket, err error) {
 	r := RootLayer{}
 	err = r.unmarshal(b)
@@ -106,6 +111,7 @@ func Unmarshal(b []byte) (p SACNPacket, err error) {
 	return
 }
 
+// Marshals any [SACNPacket] to a byte array
 func Marshal(p SACNPacket) ([]byte, error) {
 	return p.MarshalBinary()
 }

@@ -4,9 +4,9 @@ A library for sACN (ANSI E1.31) in `Go`.
 
 Fully supports and complies to the specification:
 
-- All Packet types (Data, Sync and Discovery)
-- Receiver with callbacks on sync packet reception
-- Transmitter sending discovery packets
+- All Packet types (Data, Sync and Discovery).
+- Receiver with callbacks and stream termination detection.
+- Transmitter sending discovery packets.
 
 
 ## Usage
@@ -54,7 +54,49 @@ func dataPacketCallback(p packet.SACNPacket, source string) {
 
 - Transmitter
 
-TODO
+```go
+package main
+
+import (
+    "log"
+    "time"
+
+    "gitlab.com/patopest/go-sacn"
+    "gitlab.com/patopest/go-sacn/packet"
+)
+
+func main() {
+    log.Println("Hello")
+
+    opts := sacn.SenderOptions{ // Default for all packets sent by Sender if not provided in the packet itself.
+        SourceName: "go-sacn test source"
+    }
+    sender, err := sacn.NewSender("192.168.1.200", &opts) // Create sender with binding to interface
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Initialise universe
+    var uni uint16 = 123
+    universe, err := sender.StartUniverse(uni)
+    if err != nil {
+        log.Fatal(err)
+    }
+    sender.SetMulticast(uni, true)
+
+    // Create new packet and fill it up with data
+    p := packet.NewDataPacket()
+    p.SetData([]uint8{1, 2, 3, 4})
+
+    sender.Send(uni, p) // send the packet
+
+    sender.StopUniverse(uni) // To stop the universe and advertise termination to receivers
+
+    time.Sleep(1 * time.Second)
+
+    sender.Close() // Close sender and all universes
+}
+```
 
 
 See [examples](./examples) directory for more examples.
@@ -73,6 +115,7 @@ go run examples/receiver/receiver.go
 ```shell
 go test ./...
 ```
+
 
 ## References
 

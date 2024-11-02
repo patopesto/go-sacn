@@ -8,8 +8,10 @@ import (
 	"strings"
 )
 
+// DiscoveryPacket is used to discover universes sent by sources on the network.
+// It implements the [SACNPacket] interface.
 type DiscoveryPacket struct {
-	// Inherit RootLayer
+	// inherits RootLayer
 	RootLayer
 
 	// Framing Layer
@@ -21,11 +23,12 @@ type DiscoveryPacket struct {
 	// Universe Discovery Layer
 	UDLLength uint16
 	UDLVector uint32
-	Page      uint8
-	Last      uint8
-	Universes [512]uint16
+	Page      uint8  	  // The current page number. Multiple pages will be sent if the source sends more than 512 universes.
+	Last      uint8 	  // The number of pages the source sends.
+	Universes [512]uint16 // The sorted list of universes currently sent by the source.
 }
 
+// Returns a new [DiscoveryPacket] with sensible defaults and empty Universes list.
 func NewDiscoveryPacket() *DiscoveryPacket {
 	return &DiscoveryPacket{ // Default packet with no data
 		// Root Layer
@@ -47,14 +50,17 @@ func NewDiscoveryPacket() *DiscoveryPacket {
 	}
 }
 
+// Returns the packet type
 func (d *DiscoveryPacket) GetType() SACNPacketType {
 	return PacketTypeDiscovery
 }
 
+// Returns the number of universes in the packet's Universes list.
 func (d *DiscoveryPacket) GetNumUniverses() int {
 	return int(d.UDLLength&0x0FFF-8) / 2
 }
 
+// Adds a universe at the end of the packet's Universes list,
 func (d *DiscoveryPacket) AddUniverse(universe uint16) error {
 	num := d.GetNumUniverses()
 	if num >= 512 {
@@ -66,6 +72,7 @@ func (d *DiscoveryPacket) AddUniverse(universe uint16) error {
 	return nil
 }
 
+// Sets the packet's Universes list. Overwrites the current list.
 func (d *DiscoveryPacket) SetUniverses(universes []uint16) error {
 	num := len(universes)
 	if num > 512 {
@@ -83,11 +90,13 @@ func (d *DiscoveryPacket) setNumUniverses(num uint16) {
 	d.RootLength = d.FrameLength + 38
 }
 
+// Returns the user-assigned source name defined in the packet as a string.
 func (d *DiscoveryPacket) GetSourceName() string {
 	name := string(d.SourceName[:])
 	return strings.Trim(name, "\x00") // remove trailing zeros from array
 }
 
+// Sets the source name of the packet. Shall not be more than 64 characters.
 func (d *DiscoveryPacket) SetSourceName(name string) error {
 	if len(name) > 64 {
 		return errors.New("Source name has to be < 64 bytes")
@@ -96,6 +105,7 @@ func (d *DiscoveryPacket) SetSourceName(name string) error {
 	return nil
 }
 
+// Implements [encoding.BinaryUnmarshaler] for the [DiscoveryPacket].
 func (d *DiscoveryPacket) UnmarshalBinary(b []byte) error {
 	// Root layer
 	err := d.RootLayer.unmarshal(b)
@@ -123,6 +133,7 @@ func (d *DiscoveryPacket) UnmarshalBinary(b []byte) error {
 	return d.validate()
 }
 
+// Implements [encoding.BinaryMarshaler] for the [DiscoveryPacket].
 func (d *DiscoveryPacket) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 	if err := binary.Write(&buf, binary.BigEndian, d); err != nil {

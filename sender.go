@@ -12,6 +12,7 @@ import (
 	"gitlab.com/patopest/go-sacn/packet"
 )
 
+// A sACN Sender. Use [NewSender] to create a receiver.
 type Sender struct {
 	conn *net.UDPConn
 
@@ -25,11 +26,11 @@ type Sender struct {
 	keepAlive  time.Duration
 }
 
-// Optional arguments to the sender to applied to all packets being sent
-// These can be overridden on a per packet basis if set in the packet struct.
+// Optional arguments for [NewSender] to be applied to all packets being sent by the sender.
+// These can be overridden on a per packet basis if set in the [packet.SACNPacket] being sent.
 type SenderOptions struct {
-	CID        [16]byte
-	SourceName string
+	CID        [16]byte // the CID (Component Identifier): a RFC4122 compliant UUID.
+	SourceName string   // A source name (must not be longer than 64 characters)
 	// KeepAlive  time.Duration
 }
 
@@ -45,6 +46,8 @@ type senderUniverse struct {
 
 var universeNotFoundError = errors.New("Universe is not initialised, please use StartUniverse() first")
 
+// NewSender creates a new [Sender]. Optionally pass a bind string of the host's ip address it should bind to (eg: "192.168.1.100").
+// This is mandatory if multicast is being used on any universe.
 func NewSender(address string, options *SenderOptions) (*Sender, error) {
 
 	// Generate RFC 4122 compliant UUID. From ANSI E1.31-2019 Section 5.6
@@ -89,6 +92,7 @@ func NewSender(address string, options *SenderOptions) (*Sender, error) {
 	return s, nil
 }
 
+// Stops the sender and all initialised universes
 func (s *Sender) Close() {
 
 	for _, uni := range s.universes {
@@ -101,6 +105,9 @@ func (s *Sender) Close() {
 	defer s.conn.Close()
 }
 
+// StartUniverse initialises a new universe to be sent by the sender.
+// It returns a channel into which [packet.SACNPacket] can be written to for sending out on the network.
+// Optionally you can use [Sender.Send] to also send packets for a universe.
 func (s *Sender) StartUniverse(universe uint16) (chan<- packet.SACNPacket, error) {
 	if s.IsEnabled(universe) == true {
 		return nil, errors.New("Universe is already enabled")
@@ -125,6 +132,9 @@ func (s *Sender) StartUniverse(universe uint16) (chan<- packet.SACNPacket, error
 	return ch, nil
 }
 
+// StopUniverse stops sending packet for a universe.
+// This closes the channel returned to by [Sender.StartUniverse].
+// On closing, 3 [packet.DataPacket] will be sent out with the StreamTerminated bit set as specified in section 6.7.1 of ANSI E1.31—2018.
 func (s *Sender) StopUniverse(universe uint16) error {
 
 	uni, exists := s.universes[universe]
@@ -135,6 +145,8 @@ func (s *Sender) StopUniverse(universe uint16) error {
 	return universeNotFoundError
 }
 
+// Send a packet on a universe.
+// This is an alternative way to writing packets directly on the channel returned by [Sender.StartUniverse]
 func (s *Sender) Send(universe uint16, p packet.SACNPacket) error {
 	uni, exists := s.universes[universe]
 	if exists {
@@ -267,6 +279,7 @@ func (s *Sender) sendPacket(universe *senderUniverse, p packet.SACNPacket) {
 	}
 }
 
+// GetUniverses returns the list of all currently enabled universes for the sender.
 func (s *Sender) GetUniverses() []uint16 {
 	unis := make([]uint16, 0)
 	for n, uni := range s.universes {
@@ -277,6 +290,7 @@ func (s *Sender) GetUniverses() []uint16 {
 	return unis
 }
 
+// IsEnabled returns true if the universe is currently enabled.
 func (s *Sender) IsEnabled(universe uint16) bool {
 	uni, exists := s.universes[universe]
 	if exists && uni.enabled {
@@ -304,6 +318,7 @@ func (s *Sender) SetMulticast(universe uint16, multicast bool) error {
 	return universeNotFoundError
 }
 
+// GetDestinations returns the list of unicast destinations the universe is configured to send it's packets to.
 func (s *Sender) GetDestinations(universe uint16) ([]string, error) {
 	dests := make([]string, 0)
 	uni, exists := s.universes[universe]
@@ -316,6 +331,8 @@ func (s *Sender) GetDestinations(universe uint16) ([]string, error) {
 	return nil, universeNotFoundError
 }
 
+// AddDestination adds a unicast destination that a universe should sent it's packets to.
+// destination should be in the form of a string (eg: "192.168.1.100").
 func (s *Sender) AddDestination(universe uint16, destination string) error {
 
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", destination, SACN_PORT))
@@ -331,6 +348,8 @@ func (s *Sender) AddDestination(universe uint16, destination string) error {
 	return universeNotFoundError
 }
 
+// SetDestinations sets the list of unicast destinations that a univese should sent it's packets to.
+// This overwrites the current list created by previous calls to this function or [Sender.AddDestination].
 func (s *Sender) SetDestinations(universe uint16, destinations []string) error {
 
 	dests := make([]net.UDPAddr, 0)

@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	SACN_PORT                   = 5568
-	DISCOVERY_UNIVERSE          = 64214
+	SACN_PORT                   = 5568 // the sACN UDP port number
+	DISCOVERY_UNIVERSE          = 64214 // the universe used for universe discovery
 	UNIVERSE_DISCOVERY_INTERVAL = 10   // in seconds
 	NETWORK_DATA_LOSS_TIMEOUT   = 2500 // in milliseconds
 )
