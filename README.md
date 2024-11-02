@@ -1,5 +1,9 @@
 # sACN in go
 
+[![Go Reference](https://pkg.go.dev/badge/gitlab.com/patopest/go-sacn.svg)](https://pkg.go.dev/gitlab.com/patopest/go-sacn)
+[![Go Report Card](https://goreportcard.com/badge/gitlab.com/patopest/go-sacn)](https://goreportcard.com/report/gitlab.com/patopest/go-sacn)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
 A library for sACN (ANSI E1.31) in `Go`.
 
 Fully supports and complies to the specification:
