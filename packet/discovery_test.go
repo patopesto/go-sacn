@@ -80,6 +80,7 @@ var discovery_tests = []struct {
 
 func TestDiscoveryPacketUnmarshal(t *testing.T) {
 	for _, tt := range discovery_tests {
+		// Test direct unmarshaler
 		var p DiscoveryPacket
 		err := p.UnmarshalBinary(tt.b[:])
 
@@ -93,11 +94,21 @@ func TestDiscoveryPacketUnmarshal(t *testing.T) {
 		if !reflect.DeepEqual(tt.p, p) {
 			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v]\n-  got: [%#v]", tt.name, tt.p, p)
 		}
+
+		// Test global unmarshaler
+		d, err := Unmarshal(tt.b[:])
+		if tt.err != err {
+			t.Fatalf("unexpected error on \"%s\":\n- want: %v\n-  got: %v", tt.name, tt.err, err)
+		}
+		if d.GetType() != PacketTypeDiscovery {
+			t.Fatalf("unexpected packet type returned on \"%s\":\n- want: %v\n-  got: %v", tt.name, PacketTypeDiscovery, d.GetType())
+		}
 	}
 }
 
 func TestDiscoveryPacketMarshal(t *testing.T) {
 	for _, tt := range discovery_tests {
+		// Test direct marshaler
 		b, err := tt.p.MarshalBinary()
 
 		if tt.err != err {
@@ -110,5 +121,52 @@ func TestDiscoveryPacketMarshal(t *testing.T) {
 		if !bytes.Equal(tt.b[:], b) {
 			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v] len:%d\n-  got: [%#v] len:%d", tt.name, tt.b, len(tt.b), b, len(b))
 		}
+
+		// Test global marshaler
+		d, err := Marshal(&tt.p)
+		if tt.err != err {
+			t.Fatalf("unexpected error on \"%s\":\n- want: %v\n-  got: %v", tt.name, tt.err, err)
+		}
+		if !bytes.Equal(tt.b[:], d) {
+			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v] len:%d\n-  got: [%#v] len:%d", tt.name, tt.b, len(tt.b), d, len(d))
+		}
+	}
+}
+
+func TestDiscoveryPacketUniverses(t *testing.T) {
+	p := NewDiscoveryPacket()
+
+	p.AddUniverse(123)
+	if want, got := 1, p.GetNumUniverses(); want != got {
+		t.Fatalf("universes number if incorrect: \n- want: %v\n-  got: %v", want, got)
+	}
+
+	uni := []uint16{123, 456, 2}
+	p.SetUniverses(uni)
+	if want, got := len(uni), p.GetNumUniverses(); want != got {
+		t.Fatalf("universes number if incorrect: \n- want: %v\n-  got: %v", want, got)
+	}
+
+	unis := [514]uint16{1, 2, 3}
+	err := p.SetUniverses(unis[:])
+	if err == nil {
+		t.Fatalf("No error on universe list too long")
+	}
+
+}
+
+func TestDiscoveryPacketSourceName(t *testing.T) {
+	var p DiscoveryPacket
+
+	name := "Test Source"
+	p.SetSourceName(name)
+	if want, got := name, p.GetSourceName(); want != got {
+		t.Fatalf("unexpected error on Source Name:\n- want: %v\n-  got: %v", want, got)
+	}
+
+	name = "A sACN packet source name with more than 64 characters .........+2"
+	err := p.SetSourceName(name)
+	if err == nil {
+		t.Fatalf("No error returned with source name too long")
 	}
 }

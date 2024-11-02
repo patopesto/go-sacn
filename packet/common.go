@@ -105,3 +105,7 @@ func Unmarshal(b []byte) (p SACNPacket, err error) {
 	err = p.UnmarshalBinary(b)
 	return
 }
+
+func Marshal(p SACNPacket) ([]byte, error) {
+	return p.MarshalBinary()
+}

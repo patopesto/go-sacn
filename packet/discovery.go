@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type DiscoveryPacket struct {
@@ -26,20 +27,23 @@ type DiscoveryPacket struct {
 }
 
 func NewDiscoveryPacket() *DiscoveryPacket {
-	return &DiscoveryPacket{
+	return &DiscoveryPacket{ // Default packet with no data
 		// Root Layer
 		RootLayer: RootLayer{
 			PreambleSize:        0x0010,
 			PostambleSize:       0x0000,
 			ACNPacketIdentifier: packetIdentifierE117,
 			RootVector:          VECTOR_ROOT_E131_EXTENDED,
+			RootLength:          0x7068,
 		},
 
 		// Framing Layer
 		FrameVector: VECTOR_E131_EXTENDED_DISCOVERY,
+		FrameLength: 0x7052,
 
 		// Universe Discovery Layer
 		UDLVector: VECTOR_UNIVERSE_DISCOVERY_UNIVERSE_LIST,
+		UDLLength: 0x7008,
 	}
 }
 
@@ -77,6 +81,19 @@ func (d *DiscoveryPacket) setNumUniverses(num uint16) {
 	d.UDLLength = 0x7000 | (num*2 + 8)
 	d.FrameLength = d.UDLLength + 74
 	d.RootLength = d.FrameLength + 38
+}
+
+func (d *DiscoveryPacket) GetSourceName() string {
+	name := string(d.SourceName[:])
+	return strings.Trim(name, "\x00") // remove trailing zeros from array
+}
+
+func (d *DiscoveryPacket) SetSourceName(name string) error {
+	if len(name) > 64 {
+		return errors.New("Source name has to be < 64 bytes")
+	}
+	copy(d.SourceName[:], []byte(name))
+	return nil
 }
 
 func (d *DiscoveryPacket) UnmarshalBinary(b []byte) error {

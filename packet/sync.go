@@ -27,11 +27,12 @@ func NewSyncPacket() *SyncPacket {
 			PostambleSize:       0x0000,
 			ACNPacketIdentifier: packetIdentifierE117,
 			RootVector:          VECTOR_ROOT_E131_EXTENDED,
+			RootLength:          0x7021, // always fixed
 		},
 
 		// Framing Layer
 		FrameVector: VECTOR_E131_EXTENDED_SYNCHRONIZATION,
-		FrameLength: 0x700B, // static length
+		FrameLength: 0x700B, // always fixed
 	}
 }
 

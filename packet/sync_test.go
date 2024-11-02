@@ -39,6 +39,7 @@ var sync_tests = []struct {
 
 func TestSyncPacketUnmarshal(t *testing.T) {
 	for _, tt := range sync_tests {
+		// Test direct unmarshaler
 		var p SyncPacket
 		err := p.UnmarshalBinary(tt.b[:])
 
@@ -52,11 +53,21 @@ func TestSyncPacketUnmarshal(t *testing.T) {
 		if !reflect.DeepEqual(tt.p, p) {
 			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v]\n-  got: [%#v]", tt.name, tt.p, p)
 		}
+
+		// Test global unmarshaler
+		d, err := Unmarshal(tt.b[:])
+		if tt.err != err {
+			t.Fatalf("unexpected error on \"%s\":\n- want: %v\n-  got: %v", tt.name, tt.err, err)
+		}
+		if d.GetType() != PacketTypeSync {
+			t.Fatalf("unexpected packet type returned on \"%s\":\n- want: %v\n-  got: %v", tt.name, PacketTypeSync, d.GetType())
+		}
 	}
 }
 
 func TestSyncPacketMarshal(t *testing.T) {
 	for _, tt := range sync_tests {
+		// Test direct marshaler
 		b, err := tt.p.MarshalBinary()
 
 		if tt.err != err {
@@ -68,6 +79,15 @@ func TestSyncPacketMarshal(t *testing.T) {
 
 		if !bytes.Equal(tt.b[:], b) {
 			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v] len:%d\n-  got: [%#v] len:%d", tt.name, tt.b, len(tt.b), b, len(b))
+		}
+
+		// Test global marshaler
+		d, err := Marshal(&tt.p)
+		if tt.err != err {
+			t.Fatalf("unexpected error on \"%s\":\n- want: %v\n-  got: %v", tt.name, tt.err, err)
+		}
+		if !bytes.Equal(tt.b[:], d) {
+			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v] len:%d\n-  got: [%#v] len:%d", tt.name, tt.b, len(tt.b), d, len(d))
 		}
 	}
 }

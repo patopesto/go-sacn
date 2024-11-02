@@ -86,7 +86,7 @@ var data_tests = []struct {
 				PreambleSize:        0x0010,
 				PostambleSize:       0x0000,
 				ACNPacketIdentifier: packetIdentifierE117,
-				RootLength:          0x7088,
+				RootLength:          0x7078,
 				RootVector:          VECTOR_ROOT_E131_DATA,
 				CID:                 [16]byte{},
 			},
@@ -107,7 +107,7 @@ var data_tests = []struct {
 			Data:             [513]byte{0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff},
 		},
 		b: []byte{
-			0x00, 0x10, 0x00, 0x00, 0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00, 0x70, 0x88,
+			0x00, 0x10, 0x00, 0x00, 0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00, 0x70, 0x78,
 			0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 			0x00, 0x00, 0x70, 0x62, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -122,6 +122,7 @@ var data_tests = []struct {
 
 func TestDataPacketUnmarshal(t *testing.T) {
 	for _, tt := range data_tests {
+		// Test direct unmarshaler
 		var p DataPacket
 		err := p.UnmarshalBinary(tt.b[:])
 
@@ -135,11 +136,21 @@ func TestDataPacketUnmarshal(t *testing.T) {
 		if !reflect.DeepEqual(tt.p, p) {
 			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v]\n-  got: [%#v]", tt.name, tt.p, p)
 		}
+
+		// Test global unmarshaler
+		d, err := Unmarshal(tt.b[:])
+		if tt.err != err {
+			t.Fatalf("unexpected error on \"%s\":\n- want: %v\n-  got: %v", tt.name, tt.err, err)
+		}
+		if d.GetType() != PacketTypeData {
+			t.Fatalf("unexpected packet type returned on \"%s\":\n- want: %v\n-  got: %v", tt.name, PacketTypeData, d.GetType())
+		}
 	}
 }
 
 func TestDataPacketMarshal(t *testing.T) {
 	for _, tt := range data_tests {
+		// Test direct marshaler
 		b, err := tt.p.MarshalBinary()
 
 		if tt.err != err {
@@ -152,5 +163,82 @@ func TestDataPacketMarshal(t *testing.T) {
 		if !bytes.Equal(tt.b[:], b) {
 			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v] len:%d\n-  got: [%#v] len:%d", tt.name, tt.b, len(tt.b), b, len(b))
 		}
+
+		// Test global marshaler
+		d, err := Marshal(&tt.p)
+		if tt.err != err {
+			t.Fatalf("unexpected error on \"%s\":\n- want: %v\n-  got: %v", tt.name, tt.err, err)
+		}
+		if !bytes.Equal(tt.b[:], d) {
+			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v] len:%d\n-  got: [%#v] len:%d", tt.name, tt.b, len(tt.b), d, len(d))
+		}
+	}
+}
+
+func TestDataPacketLength(t *testing.T) {
+	for _, tt := range data_tests {
+		length := tt.p.Length
+		packet := NewDataPacket()
+		packet.SetData(tt.p.Data[1:length])
+
+		if want, got := tt.p.Length, packet.Length; want != got {
+			t.Fatalf("unexpected error on Length \"%s\":\n- want: 0x%x\n-  got: 0x%x", tt.name, want, got)
+		}
+
+		if want, got := tt.p.DMPLength, packet.DMPLength; want != got {
+			t.Fatalf("unexpected error on DMPLength \"%s\":\n- want: 0x%x\n-  got: 0x%x", tt.name, want, got)
+		}
+
+		if want, got := tt.p.FrameLength, packet.FrameLength; want != got {
+			t.Fatalf("unexpected error on FrameLength \"%s\":\n- want: 0x%x\n-  got: 0x%x", tt.name, want, got)
+		}
+
+		if want, got := tt.p.RootLength, packet.RootLength; want != got {
+			t.Fatalf("unexpected error on RootLength \"%s\":\n- want: 0x%x\n-  got: 0x%x", tt.name, want, got)
+		}
+	}
+}
+
+func TestDataPacketOptions(t *testing.T) {
+	var p DataPacket
+
+	p.SetForceSynchronisation(true) // bit 5
+	if want, got := uint8(0b0010_0000), p.Options; want != got {
+		t.Fatalf("unexpected error on Force_Synchronisation bit:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+	if want, got := true, p.IsForceSynchronisation(); want != got {
+		t.Fatalf("unexpected error on Force_Synchronisation bit:\n- want: %v\n-  got: %v", want, got)
+	}
+
+	p.SetStreamTerminated(true) // bit 6
+	if want, got := uint8(0b0110_0000), p.Options; want != got {
+		t.Fatalf("unexpected error on Stream_Terminated bit:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+	if want, got := true, p.IsStreamTerminated(); want != got {
+		t.Fatalf("unexpected error on Stream_Terminated bit:\n- want: %v\n-  got: %v", want, got)
+	}
+
+	p.SetPreviewData(true) // bit 7 (MSB)
+	if want, got := uint8(0b1110_0000), p.Options; want != got {
+		t.Fatalf("unexpected error on Preview_Data bit:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+	if want, got := true, p.IsPreviewData(); want != got {
+		t.Fatalf("unexpected error on Preview_Data bit:\n- want: %v\n-  got: %v", want, got)
+	}
+}
+
+func TestDataPacketSourceName(t *testing.T) {
+	var p DataPacket
+
+	name := "Test Source"
+	p.SetSourceName(name)
+	if want, got := name, p.GetSourceName(); want != got {
+		t.Fatalf("unexpected error on Source Name:\n- want: %v\n-  got: %v", want, got)
+	}
+
+	name = "A sACN packet source name with more than 64 characters .........+2"
+	err := p.SetSourceName(name)
+	if err == nil {
+		t.Fatalf("No error returned with source name too long")
 	}
 }

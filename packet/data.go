@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cast"
 )
@@ -34,24 +35,28 @@ type DataPacket struct {
 }
 
 func NewDataPacket() *DataPacket {
-	return &DataPacket{
+	return &DataPacket{ // Default packet with no data
 		// Root Layer
 		RootLayer: RootLayer{
 			PreambleSize:        0x0010,
 			PostambleSize:       0x0000,
 			ACNPacketIdentifier: packetIdentifierE117,
 			RootVector:          VECTOR_E131_DATA_PACKET,
+			RootLength:          0x707D,
 		},
 
 		// Framing Layer
 		FrameVector: VECTOR_E131_DATA_PACKET,
+		FrameLength: 0x7057,
 		Priority:    100,
 
 		// Data Layer
 		DMPVector:        VECTOR_DMP_SET_PROPERTY,
+		DMPLength:        0x700A,
 		Format:           0xA1,
 		PropertyAddress:  0x0000,
 		AddressIncrement: 0x0001,
+		Length:           0x0000,
 	}
 }
 
@@ -76,40 +81,57 @@ func (d *DataPacket) SetData(data []byte) {
 }
 
 func (d *DataPacket) computeLength(data_length uint16) {
-	length := 126 + data_length
+	length := 125 + data_length + 1 // +1 for zero start code
 
+	d.Length = data_length + 1
 	d.RootLength = 0x7000 | (length - 16)
 	d.FrameLength = 0x7000 | (length - 38)
 	d.DMPLength = 0x7000 | (length - 115)
-	d.Length = data_length + 1
+}
+
+func (d *DataPacket) GetStartCode() uint8 {
+	return d.Data[0]
 }
 
 func (d *DataPacket) SetStartCode(code uint8) {
 	d.Data[0] = code
 }
 
+func (d *DataPacket) GetSourceName() string {
+	name := string(d.SourceName[:])
+	return strings.Trim(name, "\x00") // remove trailing zeros from array
+}
+
+func (d *DataPacket) SetSourceName(name string) error {
+	if len(name) > 64 {
+		return errors.New("Source name has to be < 64 bytes")
+	}
+	copy(d.SourceName[:], []byte(name))
+	return nil
+}
+
 func (d *DataPacket) IsPreviewData() bool {
-	return cast.ToBool(d.Options >> 6)
+	return cast.ToBool(d.Options >> 7)
 }
 
 func (d *DataPacket) SetPreviewData(value bool) {
-	d.Options |= cast.ToUint8(value) << 6
+	d.Options |= cast.ToUint8(value) << 7
 }
 
 func (d *DataPacket) IsStreamTerminated() bool {
-	return cast.ToBool(d.Options >> 5)
+	return cast.ToBool(d.Options >> 6)
 }
 
 func (d *DataPacket) SetStreamTerminated(value bool) {
-	d.Options |= cast.ToUint8(value) << 5
+	d.Options |= cast.ToUint8(value) << 6
 }
 
 func (d *DataPacket) IsForceSynchronisation() bool {
-	return cast.ToBool(d.Options >> 4)
+	return cast.ToBool(d.Options >> 5)
 }
 
 func (d *DataPacket) SetForceSynchronisation(value bool) {
-	d.Options |= cast.ToUint8(value) << 4
+	d.Options |= cast.ToUint8(value) << 5
 }
 
 func (d *DataPacket) UnmarshalBinary(b []byte) error {
