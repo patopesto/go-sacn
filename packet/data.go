@@ -41,7 +41,7 @@ func NewDataPacket() *DataPacket {
 			PreambleSize:        0x0010,
 			PostambleSize:       0x0000,
 			ACNPacketIdentifier: packetIdentifierE117,
-			RootVector:          VECTOR_E131_DATA_PACKET,
+			RootVector:          VECTOR_ROOT_E131_DATA,
 			RootLength:          0x707D,
 		},
 

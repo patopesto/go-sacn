@@ -134,7 +134,7 @@ func (r *Receiver) handlePacket(p packet.SACNPacket, source string) {
 	case packet.PacketTypeData:
 		d, _ := p.(*packet.DataPacket)
 		r.storeLastPacket(d.Universe, d)
-		if (d.Options & 1 << 6) > 0 { // Bit 6: Stream Terminated
+		if d.IsStreamTerminated() { // Bit 6: Stream Terminated
 			r.terminateUniverse(d.Universe)
 			return
 		}
@@ -147,8 +147,6 @@ func (r *Receiver) handlePacket(p packet.SACNPacket, source string) {
 	case packet.PacketTypeSync:
 		s, _ := p.(*packet.SyncPacket)
 		r.storeLastPacket(s.SyncAddress, s)
-	default:
-		/* code */
 	}
 
 	callback := r.packetCallbacks[packetType]

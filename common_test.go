@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestuniverseToAddress(t *testing.T) {
+func TestUniverseToAddress(t *testing.T) {
 	tests := []struct {
 		universe uint16
 		expected string
