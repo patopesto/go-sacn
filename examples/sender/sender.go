@@ -11,7 +11,7 @@ import (
 func main() {
 	log.Println("Hello")
 
-	sender, err := sacn.NewSender("192.168.1.200", &sacn.SenderOptions{}) // Create sender
+	sender, err := sacn.NewSender("192.168.1.200", &sacn.SenderOptions{UnivDiscInt: 1}) // Create sender
 	if err != nil {
 		log.Fatal(err)
 	}
