@@ -114,18 +114,18 @@ func (r *Receiver) RegisterTerminationCallback(callback TerminationCallbackFunc)
 func (r *Receiver) recvLoop() {
 	defer r.conn.Close()
 
-	err := r.conn.SetDeadline(time.Now().Add(time.Millisecond * NETWORK_DATA_LOSS_TIMEOUT))
-	if err != nil {
-		log.Panic(fmt.Sprintf("Could not set deadline on socket: %v", err))
-		return
-	}
-
 	for {
 		select {
 		case <-r.stop:
 			return
 		default:
 			buf := make([]byte, 1144) // 1144 bytes is max packet size (full DiscoveryPacket)
+
+			err := r.conn.SetDeadline(time.Now().Add(time.Millisecond * NETWORK_DATA_LOSS_TIMEOUT))
+			if err != nil {
+				log.Panic(fmt.Sprintf("Could not set deadline on socket: %v", err))
+				return
+			}
 
 			n, _, addr, _ := r.conn.ReadFrom(buf)
 			if addr == nil { // timeout
