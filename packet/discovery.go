@@ -23,8 +23,8 @@ type DiscoveryPacket struct {
 	// Universe Discovery Layer
 	UDLLength uint16
 	UDLVector uint32
-	Page      uint8  	  // The current page number. Multiple pages will be sent if the source sends more than 512 universes.
-	Last      uint8 	  // The number of pages the source sends.
+	Page      uint8       // The current page number. Multiple pages will be sent if the source sends more than 512 universes.
+	Last      uint8       // The number of pages the source sends.
 	Universes [512]uint16 // The sorted list of universes currently sent by the source.
 }
 

@@ -12,8 +12,11 @@ import (
 func main() {
 	fmt.Println("hello")
 
-	itf, _ := net.InterfaceByName("en0") // specific to your machine
-	receiver := sacn.NewReceiver(itf)
+	itf, _ := net.InterfaceByName("en9") // specific to your machine
+	receiver, err := sacn.NewReceiver(itf)
+	if err != nil {
+		panic(err)
+	}
 	receiver.JoinUniverse(1)
 	receiver.RegisterPacketCallback(packet.PacketTypeData, dataPacketCallback)
 	receiver.RegisterTerminationCallback(universeTerminatedCallback)

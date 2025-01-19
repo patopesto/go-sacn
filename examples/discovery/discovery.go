@@ -13,7 +13,10 @@ func main() {
 	fmt.Println("hello")
 
 	itf, _ := net.InterfaceByName("en0") // specific to your machine
-	receiver := sacn.NewReceiver(itf)
+	receiver, err := sacn.NewReceiver(itf)
+	if err != nil {
+		panic(err)
+	}
 	receiver.JoinUniverse(sacn.DISCOVERY_UNIVERSE)
 	receiver.RegisterPacketCallback(packet.PacketTypeDiscovery, discoveryPacketCallback)
 	receiver.Start()

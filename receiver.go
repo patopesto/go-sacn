@@ -15,6 +15,7 @@ import (
 // PacketCallbackFunc is the function type to be used with [Receiver.RegisterPacketCallback].
 // The arguments are the latest received [packet.SACNPacket] on any universe and the source IP that sent the packet as a string.
 type PacketCallbackFunc func(p packet.SACNPacket, source string)
+
 // TerminationCallbackFunc is the function type to be used with [Receiver.RegisterTerminationCallback].
 // The universe argument is the universe number which entered Network Data Loss conditions.
 type TerminationCallbackFunc func(universe uint16)
@@ -39,13 +40,13 @@ type networkPacket struct {
 }
 
 // NewReceiver creates a new receiver bound to the provided interface
-func NewReceiver(itf *net.Interface) *Receiver {
+func NewReceiver(itf *net.Interface) (*Receiver, error) {
 	r := &Receiver{}
 
 	addr := fmt.Sprintf(":%d", SACN_PORT)
 	listener, err := reuseport.ListenPacket("udp4", addr)
 	if err != nil {
-		log.Panicln(err)
+		return nil, err
 	}
 	udpConn := listener.(*net.UDPConn)
 	r.conn = ipv4.NewPacketConn(udpConn)
@@ -55,7 +56,7 @@ func NewReceiver(itf *net.Interface) *Receiver {
 	r.streamTerminated = make(map[uint16]bool)
 	r.packetCallbacks = make(map[packet.SACNPacketType]PacketCallbackFunc)
 
-	return r
+	return r, nil
 }
 
 // Starts the receiver
@@ -71,9 +72,9 @@ func (r *Receiver) Stop() {
 	close(r.stop)
 }
 
-// JoinUniverse starts listening for packets sent on the provided universe.  
-// Universe number shall be in the range 1 to 63999.  
-// Joins the multicast group associated with the universe number.  
+// JoinUniverse starts listening for packets sent on the provided universe.
+// Universe number shall be in the range 1 to 63999.
+// Joins the multicast group associated with the universe number.
 func (r *Receiver) JoinUniverse(universe uint16) error {
 	if universe == 0 || (universe > 64000 && universe != DISCOVERY_UNIVERSE) { // Section 9.1.1 of ANSI E1.31—2018
 		return errors.New(fmt.Sprintf("Invalid universe number: %d\n", universe))
@@ -85,8 +86,8 @@ func (r *Receiver) JoinUniverse(universe uint16) error {
 	return nil
 }
 
-// Stops listening for packets sent on a universe.  
-// Leaves the multicast groups associated with the universe number.  
+// Stops listening for packets sent on a universe.
+// Leaves the multicast groups associated with the universe number.
 func (r *Receiver) LeaveUniverse(universe uint16) error {
 	err := r.conn.LeaveGroup(r.itf, universeToAddress(universe))
 	if err != nil {
@@ -104,27 +105,27 @@ func (r *Receiver) RegisterPacketCallback(packetType packet.SACNPacketType, call
 // RegisterTerminationCallback registers a callback for when a universe enters Network Data Loss conditions as defined in section 6.7.1 of ANSI E1.31—2018.
 //
 // Network Data Loss conditions:
-// 	- Did not receive data for [NETWORK_DATA_LOSS_TIMEOUT].
-// 	- Data packet contained the StreamTerminated bit in the [packet.DataPacket] Options field.
+//   - Did not receive data for [NETWORK_DATA_LOSS_TIMEOUT].
+//   - Data packet contained the StreamTerminated bit in the [packet.DataPacket] Options field.
 func (r *Receiver) RegisterTerminationCallback(callback TerminationCallbackFunc) {
 	r.terminationCallback = callback
 }
 
 func (r *Receiver) recvLoop() {
-
 	defer r.conn.Close()
+
+	err := r.conn.SetDeadline(time.Now().Add(time.Millisecond * NETWORK_DATA_LOSS_TIMEOUT))
+	if err != nil {
+		log.Panic(fmt.Sprintf("Could not set deadline on socket: %v", err))
+		return
+	}
 
 	for {
 		select {
 		case <-r.stop:
 			return
 		default:
-			buf := make([]byte, 1144) // 1144 is max packet size (full DiscoveryPacket)
-
-			err := r.conn.SetDeadline(time.Now().Add(time.Millisecond * NETWORK_DATA_LOSS_TIMEOUT))
-			if err != nil {
-				log.Panic(fmt.Sprintf("Could not set deadline on socket: %v", err))
-			}
+			buf := make([]byte, 1144) // 1144 bytes is max packet size (full DiscoveryPacket)
 
 			n, _, addr, _ := r.conn.ReadFrom(buf)
 			if addr == nil { // timeout

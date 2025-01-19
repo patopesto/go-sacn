@@ -19,6 +19,7 @@ type Sender struct {
 	universes map[uint16]*senderUniverse
 	discovery *senderUniverse
 	wg        sync.WaitGroup
+	logger    *log.Logger
 
 	// common options for packets
 	cid        [16]byte
@@ -29,8 +30,9 @@ type Sender struct {
 // Optional arguments for [NewSender] to be applied to all packets being sent by the sender.
 // These can be overridden on a per packet basis if set in the [packet.SACNPacket] being sent.
 type SenderOptions struct {
-	CID        [16]byte // the CID (Component Identifier): a RFC4122 compliant UUID.
-	SourceName string   // A source name (must not be longer than 64 characters)
+	CID        [16]byte    // the CID (Component Identifier): a RFC4122 compliant UUID.
+	SourceName string      // A source name (must not be longer than 64 characters)
+	Logger     *log.Logger // Optionally use an alternative logger instead of the default.
 	// KeepAlive  time.Duration
 }
 
@@ -66,6 +68,9 @@ func NewSender(address string, options *SenderOptions) (*Sender, error) {
 	if len(options.SourceName) > 64 {
 		return nil, errors.New("Source name is too long. Maximum is 64 bytes")
 	}
+	if options.Logger == nil {
+		options.Logger = log.Default()
+	}
 	// if options.KeepAlive == 0 {
 	// 	options.KeepAlive = 1 * time.Second
 	// }
@@ -84,6 +89,7 @@ func NewSender(address string, options *SenderOptions) (*Sender, error) {
 		universes:  make(map[uint16]*senderUniverse),
 		cid:        options.CID,
 		sourceName: options.SourceName,
+		logger:     options.Logger,
 		// keepAlive:  options.KeepAlive,
 	}
 
@@ -259,7 +265,7 @@ func (s *Sender) sendPacket(universe *senderUniverse, p packet.SACNPacket) {
 
 	bytes, err := p.MarshalBinary()
 	if err != nil {
-		log.Println("Error", err)
+		s.logger.Println("Error", err)
 		return
 	}
 
@@ -267,14 +273,14 @@ func (s *Sender) sendPacket(universe *senderUniverse, p packet.SACNPacket) {
 	if universe.multicast {
 		_, err := s.conn.WriteToUDP(bytes, universeToAddress(universe.number))
 		if err != nil {
-			log.Printf("Error sending multicat packet: %v\n", err)
+			s.logger.Printf("Error sending multicast packet: %v\n", err)
 		}
 	}
 	// send unicast
 	for _, dest := range universe.destinations {
 		_, err := s.conn.WriteToUDP(bytes, &dest)
 		if err != nil {
-			log.Printf("Error sending unicast packet: %v\n", err)
+			s.logger.Printf("Error sending unicast packet: %v\n", err)
 		}
 	}
 }
