@@ -12,9 +12,25 @@ import (
 	"gitlab.com/patopest/go-sacn/packet"
 )
 
+// Reception mode of a packet
+type PacketMode string
+
+// Possible reception modes for a packet
+const (
+	PacketUnicast   PacketMode = "unicast"
+	PacketMulticast PacketMode = "multicast"
+	PacketBroadcast PacketMode = "broadcast"
+)
+
+// Struct of additional packet information when calling [PacketCallbackFunc] callbacks.
+type PacketInfo struct {
+	Source 		net.UDPAddr // The source address of the packet.
+	Mode        PacketMode  // How the packet was received.
+}
+
 // PacketCallbackFunc is the function type to be used with [Receiver.RegisterPacketCallback].
-// The arguments are the latest received [packet.SACNPacket] on any universe and the source IP that sent the packet as a string.
-type PacketCallbackFunc func(p packet.SACNPacket, source string)
+// The arguments are the latest received [packet.SACNPacket] on any universe and a [PacketInfo] struct.
+type PacketCallbackFunc func(p packet.SACNPacket, info PacketInfo)
 
 // TerminationCallbackFunc is the function type to be used with [Receiver.RegisterTerminationCallback].
 // The universe argument is the universe number which entered Network Data Loss conditions.
@@ -36,7 +52,6 @@ type Receiver struct {
 type networkPacket struct {
 	ts     time.Time
 	packet packet.SACNPacket
-	// source 	net.UDPAddr
 }
 
 // NewReceiver creates a new receiver bound to the provided interface
@@ -50,6 +65,9 @@ func NewReceiver(itf *net.Interface) (*Receiver, error) {
 	}
 	udpConn := listener.(*net.UDPConn)
 	r.conn = ipv4.NewPacketConn(udpConn)
+    if err := r.conn.SetControlMessage(ipv4.FlagDst, true); err != nil { // Enable receiving of destination address info
+        return nil, err
+    }
 	r.itf = itf
 
 	r.lastPackets = make(map[uint16]networkPacket)
@@ -127,13 +145,12 @@ func (r *Receiver) recvLoop() {
 				return
 			}
 
-			n, _, addr, _ := r.conn.ReadFrom(buf)
+			n, cm, addr, _ := r.conn.ReadFrom(buf)
 			if addr == nil { // timeout
 				r.checkTimeouts()
 				continue
 			}
 
-			source := addr.(*net.UDPAddr)
 			// fmt.Printf("Received %d bytes from %s\n", n, source.String())
 			var p packet.SACNPacket
 			p, err = packet.Unmarshal(buf[:n])
@@ -141,13 +158,27 @@ func (r *Receiver) recvLoop() {
 				continue
 			}
 
-			r.handlePacket(p, source.IP.String())
+			var mode PacketMode
+			if cm.Dst.Equal(net.IPv4bcast){ // Only handle local broadcast for now (ie: 255.255.255.255) not directed broadcast (ie: 192.168.1.255/24)
+		        mode = "broadcast"
+		    } else if cm.Dst.IsMulticast() {
+		    	mode = "multicast"
+		    } else {
+		        mode = "unicast"
+		    }
+
+			info := PacketInfo{
+				Source: *addr.(*net.UDPAddr),
+				Mode: mode,
+			}
+
+			r.handlePacket(p, info)
 		}
 
 	}
 }
 
-func (r *Receiver) handlePacket(p packet.SACNPacket, source string) {
+func (r *Receiver) handlePacket(p packet.SACNPacket, info PacketInfo) {
 	r.checkTimeouts()
 	packetType := p.GetType()
 
@@ -172,7 +203,7 @@ func (r *Receiver) handlePacket(p packet.SACNPacket, source string) {
 
 	callback := r.packetCallbacks[packetType]
 	if callback != nil {
-		go callback(p, source)
+		go callback(p, info)
 	}
 }
 

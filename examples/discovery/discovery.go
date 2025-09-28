@@ -26,7 +26,7 @@ func main() {
 	}
 }
 
-func discoveryPacketCallback(p packet.SACNPacket, source string) {
+func discoveryPacketCallback(p packet.SACNPacket, info sacn.PacketInfo) {
 	d, ok := p.(*packet.DiscoveryPacket)
 	if ok == false {
 		return

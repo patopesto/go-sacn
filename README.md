@@ -47,12 +47,12 @@ func main() {
     }
 }
 
-func dataPacketCallback(p packet.SACNPacket, source string) {
+func dataPacketCallback(p packet.SACNPacket, info sacn.PacketInfo) {
     d, ok := p.(*packet.DataPacket)
     if ok == false {
         return
     }
-    fmt.Printf("Received Data Packet for universe %d from %s\n", d.Universe, source)
+    fmt.Printf("Received Data Packet for universe %d from %s\n", d.Universe, info.Source.IP.String())
 }
 ```
 
@@ -118,6 +118,12 @@ go run examples/receiver/receiver.go
 
 ```shell
 go test ./...
+```
+
+- Docs
+
+```shell
+go run golang.org/x/pkgsite/cmd/pkgsite@latest -open
 ```
 
 
