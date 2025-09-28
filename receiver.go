@@ -24,8 +24,8 @@ const (
 
 // Struct of additional packet information when calling [PacketCallbackFunc] callbacks.
 type PacketInfo struct {
-	Source 		net.UDPAddr // The source address of the packet.
-	Mode        PacketMode  // How the packet was received.
+	Source net.UDPAddr // The source address of the packet.
+	Mode   PacketMode  // How the packet was received.
 }
 
 // PacketCallbackFunc is the function type to be used with [Receiver.RegisterPacketCallback].
@@ -65,9 +65,9 @@ func NewReceiver(itf *net.Interface) (*Receiver, error) {
 	}
 	udpConn := listener.(*net.UDPConn)
 	r.conn = ipv4.NewPacketConn(udpConn)
-    if err := r.conn.SetControlMessage(ipv4.FlagDst, true); err != nil { // Enable receiving of destination address info
-        return nil, err
-    }
+	if err := r.conn.SetControlMessage(ipv4.FlagDst, true); err != nil { // Enable receiving of destination address info
+		return nil, err
+	}
 	r.itf = itf
 
 	r.lastPackets = make(map[uint16]networkPacket)
@@ -159,17 +159,17 @@ func (r *Receiver) recvLoop() {
 			}
 
 			var mode PacketMode
-			if cm.Dst.Equal(net.IPv4bcast){ // Only handle local broadcast for now (ie: 255.255.255.255) not directed broadcast (ie: 192.168.1.255/24)
-		        mode = "broadcast"
-		    } else if cm.Dst.IsMulticast() {
-		    	mode = "multicast"
-		    } else {
-		        mode = "unicast"
-		    }
+			if cm.Dst.Equal(net.IPv4bcast) { // Only handle local broadcast for now (ie: 255.255.255.255) not directed broadcast (ie: 192.168.1.255/24)
+				mode = "broadcast"
+			} else if cm.Dst.IsMulticast() {
+				mode = "multicast"
+			} else {
+				mode = "unicast"
+			}
 
 			info := PacketInfo{
 				Source: *addr.(*net.UDPAddr),
-				Mode: mode,
+				Mode:   mode,
 			}
 
 			r.handlePacket(p, info)
