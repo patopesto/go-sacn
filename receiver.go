@@ -15,17 +15,20 @@ import (
 // Reception mode of a packet
 type PacketMode string
 
-// Possible reception modes for a packet
+// Possible reception modes for a packet.
+//
+// Warning: on Windows, the mode is not available and will default to PacketUnknown due to https://github.com/golang/go/issues/7175
 const (
 	PacketUnicast   PacketMode = "unicast"
 	PacketMulticast PacketMode = "multicast"
 	PacketBroadcast PacketMode = "broadcast"
+	PacketUnknown   PacketMode = ""
 )
 
 // Struct of additional packet information when calling [PacketCallbackFunc] callbacks.
 type PacketInfo struct {
 	Source net.UDPAddr // The source address of the packet.
-	Mode   PacketMode  // How the packet was received.
+	Mode   PacketMode  // How the packet was received. (WARNING: Not available on Windows due to https://github.com/golang/go/issues/7175)
 }
 
 // PacketCallbackFunc is the function type to be used with [Receiver.RegisterPacketCallback].
@@ -65,9 +68,7 @@ func NewReceiver(itf *net.Interface) (*Receiver, error) {
 	}
 	udpConn := listener.(*net.UDPConn)
 	r.conn = ipv4.NewPacketConn(udpConn)
-	if err := r.conn.SetControlMessage(ipv4.FlagDst, true); err != nil { // Enable receiving of destination address info
-		return nil, err
-	}
+	r.conn.SetControlMessage(ipv4.FlagDst, true) // Do not catch error if running on windows
 	r.itf = itf
 
 	r.lastPackets = make(map[uint16]networkPacket)
@@ -158,13 +159,15 @@ func (r *Receiver) recvLoop() {
 				continue
 			}
 
-			var mode PacketMode
-			if cm.Dst.Equal(net.IPv4bcast) { // Only handle local broadcast for now (ie: 255.255.255.255) not directed broadcast (ie: 192.168.1.255/24)
-				mode = "broadcast"
-			} else if cm.Dst.IsMulticast() {
-				mode = "multicast"
-			} else {
-				mode = "unicast"
+			mode := PacketUnknown
+			if cm != nil && cm.Dst != nil {
+				if cm.Dst.Equal(net.IPv4bcast) { // Only handle local broadcast for now (ie: 255.255.255.255) not directed broadcast (ie: 192.168.1.255/24)
+					mode = PacketBroadcast
+				} else if cm.Dst.IsMulticast() {
+					mode = PacketMulticast
+				} else {
+					mode = PacketUnicast
+				}
 			}
 
 			info := PacketInfo{
