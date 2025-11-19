@@ -25,6 +25,9 @@ type Sender struct {
 	cid        [16]byte
 	sourceName string
 	keepAlive  time.Duration
+
+	// options for the sender
+	univDiscInt uint16
 }
 
 // Optional arguments for [NewSender] to be applied to all packets being sent by the sender.
@@ -34,6 +37,8 @@ type SenderOptions struct {
 	SourceName string      // A source name (must not be longer than 64 characters)
 	Logger     *log.Logger // Optionally use an alternative logger instead of the default.
 	// KeepAlive  time.Duration
+
+	UnivDiscInt uint16 // Universe discovery interval in seconds. Default is 10 seconds.
 }
 
 // Stores all the information required per universe a sender is handling
@@ -75,6 +80,10 @@ func NewSender(address string, options *SenderOptions) (*Sender, error) {
 	// 	options.KeepAlive = 1 * time.Second
 	// }
 
+	if options.UnivDiscInt == 0 {
+		options.UnivDiscInt = UNIVERSE_DISCOVERY_INTERVAL
+	}
+
 	server, err := net.ResolveUDPAddr("udp", address+":0")
 	if err != nil {
 		return nil, err
@@ -91,6 +100,7 @@ func NewSender(address string, options *SenderOptions) (*Sender, error) {
 		sourceName: options.SourceName,
 		logger:     options.Logger,
 		// keepAlive:  options.KeepAlive,
+		univDiscInt: options.UnivDiscInt,
 	}
 
 	go s.sendDiscoveryLoop()
@@ -222,14 +232,41 @@ func (s *Sender) sendLoop(universe uint16) {
 
 func (s *Sender) sendDiscoveryLoop() {
 
+	sendDiscoveryPacket := func() {
+		num := len(s.universes)
+		pages := num / 512
+		universes := s.GetUniverses()
+		for page := 0; page < pages+1; page += 1 {
+			p := packet.NewDiscoveryPacket()
+			p.Page = uint8(page)
+			p.Last = uint8(pages)
+			p.CID = s.cid
+			p.SetSourceName(s.sourceName)
+
+			start := page * 512
+			end := (page + 1) * 512
+			if end > len(universes) {
+				end = len(universes)
+			}
+			p.SetUniverses(universes[start:end])
+
+			s.sendPacket(s.discovery, p)
+		}
+	}
+
 	s.discovery = &senderUniverse{
 		number:    DISCOVERY_UNIVERSE,
 		enabled:   true,
 		multicast: true,
-		dataCh:    make(chan packet.SACNPacket, 0), // still create a data channel to close on sender Close()
+		dataCh:    make(chan packet.SACNPacket), // still create a data channel to close on sender Close()
 	}
+
+	// Send a discovery packet right away
+	sendDiscoveryPacket()
+
+	// Create a ticker so a discovery packet is sent on every tick
 	s.wg.Add(1)
-	timer := time.NewTicker(UNIVERSE_DISCOVERY_INTERVAL * time.Second)
+	timer := time.NewTicker(time.Duration(s.univDiscInt) * time.Second)
 	defer timer.Stop()
 	defer s.wg.Done()
 
@@ -238,25 +275,7 @@ func (s *Sender) sendDiscoveryLoop() {
 		case <-s.discovery.dataCh: // channel was closed
 			return
 		case <-timer.C:
-			num := len(s.universes)
-			pages := num / 512
-			universes := s.GetUniverses()
-			for page := 0; page < pages+1; page += 1 {
-				p := packet.NewDiscoveryPacket()
-				p.Page = uint8(page)
-				p.Last = uint8(pages)
-				p.CID = s.cid
-				p.SetSourceName(s.sourceName)
-
-				start := page * 512
-				end := (page + 1) * 512
-				if end > len(universes) {
-					end = len(universes)
-				}
-				p.SetUniverses(universes[start:end])
-
-				s.sendPacket(s.discovery, p)
-			}
+			sendDiscoveryPacket()
 		}
 	}
 }
