@@ -88,7 +88,9 @@ func (r *Receiver) Start() {
 
 // Stops the receiver
 func (r *Receiver) Stop() {
-	close(r.stop)
+	if r.stop != nil {
+		close(r.stop)
+	}
 }
 
 // JoinUniverse starts listening for packets sent on the provided universe.

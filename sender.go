@@ -91,6 +91,12 @@ func NewSender(address string, options *SenderOptions) (*Sender, error) {
 		sourceName: options.SourceName,
 		logger:     options.Logger,
 		// keepAlive:  options.KeepAlive,
+		discovery: &senderUniverse{
+			number:    DISCOVERY_UNIVERSE,
+			enabled:   true,
+			multicast: true,
+			dataCh:    make(chan packet.SACNPacket, 0), // still create a data channel to close on sender Close()
+		},
 	}
 
 	go s.sendDiscoveryLoop()
@@ -108,7 +114,7 @@ func (s *Sender) Close() {
 	}
 	close(s.discovery.dataCh)
 	s.wg.Wait()
-	defer s.conn.Close()
+	s.conn.Close()
 }
 
 // StartUniverse initialises a new universe to be sent by the sender.
@@ -221,13 +227,6 @@ func (s *Sender) sendLoop(universe uint16) {
 }
 
 func (s *Sender) sendDiscoveryLoop() {
-
-	s.discovery = &senderUniverse{
-		number:    DISCOVERY_UNIVERSE,
-		enabled:   true,
-		multicast: true,
-		dataCh:    make(chan packet.SACNPacket, 0), // still create a data channel to close on sender Close()
-	}
 	s.wg.Add(1)
 	timer := time.NewTicker(UNIVERSE_DISCOVERY_INTERVAL * time.Second)
 	defer timer.Stop()
