@@ -1,12 +1,13 @@
 # sACN in go
 
-[![Go Reference](https://pkg.go.dev/badge/gitlab.com/patopest/go-sacn.svg)](https://pkg.go.dev/gitlab.com/patopest/go-sacn)
-[![Go Report Card](https://goreportcard.com/badge/gitlab.com/patopest/go-sacn)](https://goreportcard.com/report/gitlab.com/patopest/go-sacn)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-![Go version](https://img.shields.io/gitlab/go-mod/go-version/patopest/go-sacn)
-![GitLab Tag](https://img.shields.io/gitlab/v/tag/patopest%2Fgo-sacn)
+[![documentation](http://img.shields.io/badge/go-documentation-blue.svg)](https://pkg.go.dev/gitlab.com/patopest/go-sacn)
+[![lib version](https://img.shields.io/gitlab/v/tag/patopest%2Fgo-sacn?label=latest)](https://gitlab.com/patopest/go-sacn/-/tags)
+[![report](https://goreportcard.com/badge/gitlab.com/patopest/go-sacn)](https://goreportcard.com/report/gitlab.com/patopest/go-sacn)
+[![go version](https://img.shields.io/gitlab/go-mod/go-version/patopest/go-sacn?label=go)](https://go.dev)
+[![license](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-A library for sACN (ANSI E1.31) in `Go`.
+
+A library for sACN (ANSI E1.31) in pure Go.
 
 Fully supports and complies to the specification:
 
@@ -110,22 +111,32 @@ See [examples](./examples) directory for more examples.
 
 ## Development
 
-- Run an example to test your code
+Using [go-task](https://github.com/go-task/task).
+
+- Run an example
 
 ```shell
-go run examples/receiver/receiver.go
+task run EXAMPLE=sender
 ```
 
 - Tests
 
 ```shell
-go test ./...
+task tests
+# with coverage report
+task coverage
 ```
 
-- Docs
+- Before committing
 
 ```shell
-go run golang.org/x/pkgsite/cmd/pkgsite@latest -open
+task check # formats, lints and checks code
+```
+
+- Docs (to open locally)
+
+```shell
+task docs
 ```
 
 
