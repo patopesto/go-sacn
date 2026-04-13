@@ -20,6 +20,7 @@ type Sender struct {
 	discovery *senderUniverse
 	wg        sync.WaitGroup
 	logger    *log.Logger
+	mu        sync.RWMutex
 
 	// common options for packets
 	cid        [16]byte
@@ -99,6 +100,7 @@ func NewSender(address string, options *SenderOptions) (*Sender, error) {
 		},
 	}
 
+	s.wg.Add(1)
 	go s.sendDiscoveryLoop()
 
 	return s, nil
@@ -106,13 +108,15 @@ func NewSender(address string, options *SenderOptions) (*Sender, error) {
 
 // Stops the sender and all initialised universes
 func (s *Sender) Close() {
-
+	s.mu.Lock()
 	for _, uni := range s.universes {
 		if uni.enabled {
 			close(uni.dataCh)
 		}
 	}
 	close(s.discovery.dataCh)
+	s.mu.Unlock()
+
 	s.wg.Wait()
 	s.conn.Close()
 }
@@ -121,7 +125,10 @@ func (s *Sender) Close() {
 // It returns a channel into which [packet.SACNPacket] can be written to for sending out on the network.
 // Optionally you can use [Sender.Send] to also send packets for a universe.
 func (s *Sender) StartUniverse(universe uint16) (chan<- packet.SACNPacket, error) {
-	if s.IsEnabled(universe) == true {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.universes[universe]; exists {
 		return nil, errors.New("Universe is already enabled")
 	}
 	if universe < 1 || universe >= 64000 { // From ANSI E1.31-2019 Section 6.2.7
@@ -137,8 +144,10 @@ func (s *Sender) StartUniverse(universe uint16) (chan<- packet.SACNPacket, error
 		multicast:    false,
 		destinations: make([]net.UDPAddr, 0),
 	}
+
 	s.universes[universe] = uni
 
+	s.wg.Add(1)
 	go s.sendLoop(universe)
 
 	return ch, nil
@@ -148,6 +157,8 @@ func (s *Sender) StartUniverse(universe uint16) (chan<- packet.SACNPacket, error
 // This closes the channel returned to by [Sender.StartUniverse].
 // On closing, 3 [packet.DataPacket] will be sent out with the StreamTerminated bit set as specified in section 6.7.1 of ANSI E1.31—2018.
 func (s *Sender) StopUniverse(universe uint16) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	uni, exists := s.universes[universe]
 	if exists {
@@ -160,24 +171,30 @@ func (s *Sender) StopUniverse(universe uint16) error {
 // Send a packet on a universe.
 // This is an alternative way to writing packets directly on the channel returned by [Sender.StartUniverse]
 func (s *Sender) Send(universe uint16, p packet.SACNPacket) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	uni, exists := s.universes[universe]
 	if exists {
-		uni.dataCh <- p
+		packet := p // copy so that sendLoop can mutate the object
+		uni.dataCh <- packet
 		return nil
 	}
 	return universeNotFoundError
 }
 
 func (s *Sender) sendLoop(universe uint16) {
-
+	s.mu.RLock()
 	uni := s.universes[universe]
-	s.wg.Add(1)
 	ch := uni.dataCh
+	s.mu.RUnlock()
 
 	// Receive new packets to send out
 	for p := range ch {
+		s.mu.Lock()
 		uni.sequence += 1
 		sequence := uni.sequence
+		s.mu.Unlock()
 
 		packetType := p.GetType()
 		switch packetType {
@@ -213,7 +230,9 @@ func (s *Sender) sendLoop(universe uint16) {
 		s.sendPacket(uni, p)
 	}
 
+	s.mu.Lock()
 	uni.enabled = false
+	s.mu.Unlock()
 	// Send packet with stream terminated bit 3 times
 	p := packet.NewDataPacket()
 	p.SetStreamTerminated(true)
@@ -222,12 +241,13 @@ func (s *Sender) sendLoop(universe uint16) {
 	}
 
 	// Destroy universe
-	s.wg.Done()
+	s.mu.Lock()
 	delete(s.universes, universe)
+	s.mu.Unlock()
+	s.wg.Done()
 }
 
 func (s *Sender) sendDiscoveryLoop() {
-	s.wg.Add(1)
 	timer := time.NewTicker(UNIVERSE_DISCOVERY_INTERVAL * time.Second)
 	defer timer.Stop()
 	defer s.wg.Done()
@@ -237,9 +257,10 @@ func (s *Sender) sendDiscoveryLoop() {
 		case <-s.discovery.dataCh: // channel was closed
 			return
 		case <-timer.C:
-			num := len(s.universes)
-			pages := num / 512
 			universes := s.GetUniverses()
+			num := len(universes)
+			pages := num / 512
+
 			for page := 0; page < pages+1; page += 1 {
 				p := packet.NewDiscoveryPacket()
 				p.Page = uint8(page)
@@ -249,8 +270,8 @@ func (s *Sender) sendDiscoveryLoop() {
 
 				start := page * 512
 				end := (page + 1) * 512
-				if end > len(universes) {
-					end = len(universes)
+				if end > num {
+					end = num
 				}
 				p.SetUniverses(universes[start:end])
 
@@ -261,7 +282,6 @@ func (s *Sender) sendDiscoveryLoop() {
 }
 
 func (s *Sender) sendPacket(universe *senderUniverse, p packet.SACNPacket) {
-
 	bytes, err := p.MarshalBinary()
 	if err != nil {
 		s.logger.Println("Error", err)
@@ -286,6 +306,9 @@ func (s *Sender) sendPacket(universe *senderUniverse, p packet.SACNPacket) {
 
 // GetUniverses returns the list of all currently enabled universes for the sender.
 func (s *Sender) GetUniverses() []uint16 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	unis := make([]uint16, 0)
 	for n, uni := range s.universes {
 		if uni.enabled {
@@ -297,6 +320,9 @@ func (s *Sender) GetUniverses() []uint16 {
 
 // IsEnabled returns true if the universe is currently enabled.
 func (s *Sender) IsEnabled(universe uint16) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	uni, exists := s.universes[universe]
 	if exists && uni.enabled {
 		return true
@@ -306,6 +332,9 @@ func (s *Sender) IsEnabled(universe uint16) bool {
 
 // IsMulticast returns wether or not multicast is turned on for the given universe.
 func (s *Sender) IsMulticast(universe uint16) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	uni, exists := s.universes[universe]
 	if exists {
 		return uni.multicast, nil
@@ -315,6 +344,9 @@ func (s *Sender) IsMulticast(universe uint16) (bool, error) {
 
 // SetMulticast is for setting whether or not a universe should be send out via multicast.
 func (s *Sender) SetMulticast(universe uint16, multicast bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	uni, exists := s.universes[universe]
 	if exists {
 		uni.multicast = multicast
@@ -325,6 +357,9 @@ func (s *Sender) SetMulticast(universe uint16, multicast bool) error {
 
 // GetDestinations returns the list of unicast destinations the universe is configured to send it's packets to.
 func (s *Sender) GetDestinations(universe uint16) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	dests := make([]string, 0)
 	uni, exists := s.universes[universe]
 	if exists {
@@ -339,6 +374,8 @@ func (s *Sender) GetDestinations(universe uint16) ([]string, error) {
 // AddDestination adds a unicast destination that a universe should sent it's packets to.
 // destination should be in the form of a string (eg: "192.168.1.100").
 func (s *Sender) AddDestination(universe uint16, destination string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", destination, SACN_PORT))
 	if err != nil {
@@ -356,6 +393,8 @@ func (s *Sender) AddDestination(universe uint16, destination string) error {
 // SetDestinations sets the list of unicast destinations that a univese should sent it's packets to.
 // This overwrites the current list created by previous calls to this function or [Sender.AddDestination].
 func (s *Sender) SetDestinations(universe uint16, destinations []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	dests := make([]net.UDPAddr, 0)
 	for _, dest := range destinations {
