@@ -235,6 +235,7 @@ func (s *Sender) sendLoop(universe uint16) {
 	s.mu.Unlock()
 	// Send packet with stream terminated bit 3 times
 	p := packet.NewDataPacket()
+	p.Universe = universe
 	p.SetStreamTerminated(true)
 	for i := 0; i < 3; i++ {
 		s.sendPacket(uni, p)
