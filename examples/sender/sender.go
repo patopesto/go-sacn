@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 )
 
 func main() {
-	log.Println("Hello")
+	fmt.Println("Hello from sender")
 
 	sender, err := sacn.NewSender("192.168.1.200", &sacn.SenderOptions{}) // Create sender
 	if err != nil {
@@ -17,7 +18,7 @@ func main() {
 	}
 
 	// Initialise universe
-	var uni uint16 = 123
+	var uni uint16 = 1
 	universe, err := sender.StartUniverse(uni)
 	if err != nil {
 		log.Fatal(err)
@@ -29,9 +30,9 @@ func main() {
 	// Create new packet and fill it up with data
 	p := packet.NewDataPacket()
 	p.SetData([]uint8{1, 2, 3, 4})
-	log.Println("Sending packet")
 
 	for i := 0; i < 10; i++ {
+		log.Println("Sending packet")
 		universe <- p // send the packet
 
 		time.Sleep(1 * time.Second)
