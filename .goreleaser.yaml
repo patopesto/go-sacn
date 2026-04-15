@@ -1,0 +1,28 @@
+version: 2
+
+project_name: go-sacn
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+
+builds:
+  - skip: true
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "Merge pull request"
+      - "Merge branch"
+
+release:
+  gitlab:
+  mode: append
+
