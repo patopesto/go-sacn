@@ -9,29 +9,45 @@ import (
 	"gitlab.com/patopest/go-sacn/packet"
 )
 
-// Helper to get a test network interface
+// getTestInterface returns a multicast-capable IPv4 interface.
+// It prefers non-loopback interfaces but falls back to loopback if none found.
 func getTestInterface(t *testing.T) *net.Interface {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		t.Fatalf("Failed to get network interfaces: %v", err)
 	}
 
+	// First, try to find a non-loopback multicast-capable interface with IPv4
 	for _, iface := range ifaces {
-		// Skip loopback for multicast tests, but include it for basic tests
-		if iface.Flags&net.FlagUp != 0 && iface.Flags&net.FlagMulticast != 0 {
-			return &iface
+		if iface.Flags&net.FlagUp != 0 &&
+			iface.Flags&net.FlagMulticast != 0 &&
+			iface.Flags&net.FlagLoopback == 0 {
+			// Check if interface has an IPv4 address
+			addrs, err := iface.Addrs()
+			if err != nil {
+				continue
+			}
+			for _, addr := range addrs {
+				if ipnet, ok := addr.(*net.IPNet); ok {
+					if ipnet.IP.To4() != nil {
+						return &iface
+					}
+				}
+			}
 		}
 	}
 
 	// Fall back to loopback
-	iface, err := net.InterfaceByName("lo0")
-	if err != nil {
-		iface, err = net.InterfaceByName("lo")
-		if err != nil {
-			t.Skip("No suitable network interface found")
+	names := []string{"lo0", "lo"}
+	for _, name := range names {
+		iface, err := net.InterfaceByName(name)
+		if err == nil {
+			return iface
 		}
 	}
-	return iface
+
+	t.Skip("No suitable network interface found")
+	return nil
 }
 
 func TestNewReceiver(t *testing.T) {
