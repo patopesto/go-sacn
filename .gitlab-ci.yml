@@ -1,0 +1,64 @@
+stages:
+  - lint
+  - test
+
+variables:
+  GOMODCACHE: $CI_PROJECT_DIR/.go/pkg/mod
+  GOCACHE: $CI_PROJECT_DIR/.go/cache
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event' # Run pipeline on merge requests
+    - if: $CI_COMMIT_BRANCH                            # Run pipeline on branches
+    - if: $CI_COMMIT_TAG                               # Run pipeline on tags
+
+default:
+  image: golang:1.25
+  tags:
+    - docker
+  before_script:
+    # Install Task
+    - sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
+cache:
+  paths:
+    - .go/pkg/mod/
+    - .go/cache/
+  key:
+    files:
+      - go.mod
+      - go.sum
+
+
+# Jobs
+fmt:
+  stage: lint
+  script:
+    - task fmt
+    # Check if any files were modified by go fmt
+    - git diff --exit-code || (echo "Code is not formatted. Run 'task fmt' locally." && exit 1)
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH
+
+test:
+  stage: test
+  variables:
+    BUILD_DIR: "build"
+    JUNIT_FILE: "${BUILD_DIR}/junit.xml"
+    COVERAGE_FILE: "${BUILD_DIR}/coverage.out"
+  script:
+    - task coverage MODE="fund" TOOLS_ARGS="--junitfile ${JUNIT_FILE}" TEST_ARGS="-coverprofile=${COVERAGE_FILE}"
+  coverage: '/total:\s+\(statements\)\s+(\d+\.?\d*)%/'
+  artifacts:
+    paths:
+      - build/*
+    reports:
+      junit: build/junit.xml
+    expire_in: 1 week
+    when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH
