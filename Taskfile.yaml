@@ -33,6 +33,10 @@ tasks:
     preconditions:
       - mkdir -p {{ .BUILD_DIR }}
 
+  docs:
+    desc: "Open local docs website"
+    cmd: go run golang.org/x/pkgsite/cmd/pkgsite@latest -open
+
   check:
     desc: "Clean, tidy and audit"
     cmds:
@@ -52,10 +56,6 @@ tasks:
   tidy:
     desc: "Clean and tidy dependencies"
     cmd: go mod tidy -v
-
-  docs:
-    desc: "Open local docs website"
-    cmd: go run golang.org/x/pkgsite/cmd/pkgsite@latest -open
 
   update:
     desc: "Update dependencies"
