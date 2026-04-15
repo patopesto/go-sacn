@@ -49,7 +49,7 @@ test:
     JUNIT_FILE: "${BUILD_DIR}/junit.xml"
     COVERAGE_FILE: "${BUILD_DIR}/coverage.out"
   script:
-    - task coverage MODE="fund" TOOLS_ARGS="--junitfile ${JUNIT_FILE}" TEST_ARGS="-coverprofile=${COVERAGE_FILE}"
+    - task coverage MODE="func" TOOLS_ARGS="--junitfile ${JUNIT_FILE}" TEST_ARGS="-coverprofile=${COVERAGE_FILE}"
   coverage: '/total:\s+\(statements\)\s+(\d+\.?\d*)%/'
   artifacts:
     paths:
