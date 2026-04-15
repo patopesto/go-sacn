@@ -242,3 +242,206 @@ func TestDataPacketSourceName(t *testing.T) {
 		t.Fatalf("No error returned with source name too long")
 	}
 }
+
+func TestDataPacketGetData(t *testing.T) {
+	p := NewDataPacket()
+	p.SetData([]byte{0x01, 0x02, 0x03, 0x04, 0xFF})
+
+	data := p.GetData()
+	expected := []byte{0x01, 0x02, 0x03, 0x04, 0xFF}
+
+	if len(data) < len(expected) {
+		t.Fatalf("GetData returned insufficient data: got %d bytes, want at least %d", len(data), len(expected))
+	}
+
+	for i, b := range expected {
+		if data[i] != b {
+			t.Fatalf("unexpected byte at position %d:\n- want: 0x%x\n-  got: 0x%x", i, b, data[i])
+		}
+	}
+}
+
+func TestDataPacketStartCode(t *testing.T) {
+	p := NewDataPacket()
+
+	// Default start code should be 0
+	if want, got := uint8(0), p.GetStartCode(); want != got {
+		t.Fatalf("unexpected default start code:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+
+	// Set start code to non-zero value
+	p.SetStartCode(0xDD)
+	if want, got := uint8(0xDD), p.GetStartCode(); want != got {
+		t.Fatalf("unexpected start code:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+
+	// Set start code to another value
+	p.SetStartCode(0x00)
+	if want, got := uint8(0x00), p.GetStartCode(); want != got {
+		t.Fatalf("unexpected start code after reset:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+}
+
+func TestDataPacketSetDataTruncation(t *testing.T) {
+	p := NewDataPacket()
+
+	// Create data larger than 512 bytes
+	largeData := make([]byte, 600)
+	for i := range largeData {
+		largeData[i] = byte(i % 256)
+	}
+
+	p.SetData(largeData)
+
+	// Length should be truncated to 513 (512 data bytes + 1 start code byte)
+	if want, got := uint16(513), p.Length; want != got {
+		t.Fatalf("data should be truncated to 512 bytes (+1 start code):\n- want Length: %d\n-  got Length: %d", want, got)
+	}
+
+	// Verify the first 512 bytes were preserved
+	data := p.GetData()
+	if len(data) != 512 {
+		t.Fatalf("GetData should return exactly 512 bytes:\n- want: 512\n-  got: %d", len(data))
+	}
+
+	for i := 0; i < 512; i++ {
+		if data[i] != byte(i%256) {
+			t.Fatalf("unexpected byte at position %d:\n- want: 0x%x\n-  got: 0x%x", i, byte(i%256), data[i])
+		}
+	}
+}
+
+func TestDataPacketValidateErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		modify  func(*DataPacket)
+		wantErr string
+	}{
+		{
+			name: "Invalid Root Vector",
+			modify: func(p *DataPacket) {
+				p.RootVector = 0x9999
+			},
+			wantErr: "Invalid Root Vector",
+		},
+		{
+			name: "Invalid Frame Vector",
+			modify: func(p *DataPacket) {
+				p.RootVector = VECTOR_ROOT_E131_DATA // reset to valid
+				p.FrameVector = 0x9999
+			},
+			wantErr: "Invalid Frame Vector",
+		},
+		{
+			name: "Invalid DMP Vector",
+			modify: func(p *DataPacket) {
+				p.FrameVector = VECTOR_E131_DATA_PACKET // reset to valid
+				p.DMPVector = 0x99
+			},
+			wantErr: "Invalid DMP Vector",
+		},
+		{
+			name: "Invalid DMP Format",
+			modify: func(p *DataPacket) {
+				p.DMPVector = VECTOR_DMP_SET_PROPERTY // reset to valid
+				p.Format = 0x99
+			},
+			wantErr: "Invalid DMP Formats",
+		},
+		{
+			name: "Invalid Property Address",
+			modify: func(p *DataPacket) {
+				p.Format = 0xA1 // reset to valid
+				p.PropertyAddress = 1
+			},
+			wantErr: "Invalid DMP Formats",
+		},
+		{
+			name: "Invalid Address Increment",
+			modify: func(p *DataPacket) {
+				p.PropertyAddress = 0 // reset to valid
+				p.AddressIncrement = 2
+			},
+			wantErr: "Invalid DMP Formats",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewDataPacket()
+			tt.modify(p)
+
+			err := p.validate()
+			if err == nil {
+				t.Fatalf("expected error but got nil")
+			}
+			if err.Error() != tt.wantErr {
+				t.Fatalf("unexpected error message:\n- want: %s\n-  got: %s", tt.wantErr, err.Error())
+			}
+		})
+	}
+}
+
+func TestDataPacketUnmarshalBinaryErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		bytes   []byte
+		wantErr string
+	}{
+		{
+			name:    "Empty buffer",
+			bytes:   []byte{},
+			wantErr: "Root layer length incorrect",
+		},
+		{
+			name: "Frame length mismatch",
+			bytes: func() []byte {
+				p := NewDataPacket()
+				b, _ := p.MarshalBinary()
+				// Corrupt frame length (at bytes 38:40)
+				b[38] = 0xFF
+				b[39] = 0xFF
+				return b
+			}(),
+			wantErr: "Incorrect packet size",
+		},
+		{
+			name: "DMP length mismatch",
+			bytes: func() []byte {
+				p := NewDataPacket()
+				b, _ := p.MarshalBinary()
+				// Corrupt DMP length (at bytes 115:117)
+				b[115] = 0xFF
+				b[116] = 0xFF
+				return b
+			}(),
+			wantErr: "Incorrect packet size",
+		},
+		{
+			name: "Data length mismatch",
+			bytes: func() []byte {
+				p := NewDataPacket()
+				p.SetData([]byte{0x01, 0x02})
+				b, _ := p.MarshalBinary()
+				// Corrupt data length (at bytes 123:125)
+				b[123] = 0xFF
+				b[124] = 0xFF
+				return b
+			}(),
+			wantErr: "Incorrect packet size",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var p DataPacket
+			err := p.UnmarshalBinary(tt.bytes)
+			if err == nil {
+				t.Fatalf("expected error but got nil")
+			}
+			if tt.wantErr != "" && len(err.Error()) < len(tt.wantErr) {
+				t.Fatalf("unexpected error message:\n- want to contain: %s\n-  got: %s", tt.wantErr, err.Error())
+			}
+		})
+	}
+}

@@ -92,15 +92,107 @@ func TestSyncPacketMarshal(t *testing.T) {
 	}
 }
 
-// func TestSyncPacketData(t *testing.T) {
-// 	for _, tt := range sync_tests {
-// 		s := NewSyncPacket()
-// 		copy(s.CID[:], tt.p.CID[:])
-// 		s.SyncAddress = tt.p.SyncAddress
-// 		s.Sequence = tt.p.Sequence
+func TestNewSyncPacket(t *testing.T) {
+	p := NewSyncPacket()
 
-// 		if !reflect.DeepEqual(tt.p, s) {
-// 			t.Fatalf("unexpected bytes on \"%s\":\n- want: [%#v]\n-  got: [%#v]", tt.name, tt.p, s)
-// 		}
-// 	}
-// }
+	// Verify default values
+	if want, got := uint16(0x0010), p.PreambleSize; want != got {
+		t.Fatalf("unexpected PreambleSize:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+	if want, got := uint16(0x0000), p.PostambleSize; want != got {
+		t.Fatalf("unexpected PostambleSize:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+	if want, got := uint32(VECTOR_ROOT_E131_EXTENDED), p.RootVector; want != got {
+		t.Fatalf("unexpected RootVector:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+	if want, got := uint32(VECTOR_E131_EXTENDED_SYNCHRONIZATION), p.FrameVector; want != got {
+		t.Fatalf("unexpected FrameVector:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+	if want, got := uint16(0x7021), p.RootLength; want != got {
+		t.Fatalf("unexpected RootLength:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+	if want, got := uint16(0x700B), p.FrameLength; want != got {
+		t.Fatalf("unexpected FrameLength:\n- want: 0x%x\n-  got: 0x%x", want, got)
+	}
+	if want, got := uint16(0), p.SyncAddress; want != got {
+		t.Fatalf("unexpected SyncAddress:\n- want: %d\n-  got: %d", want, got)
+	}
+	if want, got := PacketTypeSync, p.GetType(); want != got {
+		t.Fatalf("unexpected packet type:\n- want: %d\n-  got: %d", want, got)
+	}
+}
+
+func TestSyncPacketValidateErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		modify  func(*SyncPacket)
+		wantErr string
+	}{
+		{
+			name: "Invalid Root Vector",
+			modify: func(p *SyncPacket) {
+				p.RootVector = 0x9999
+			},
+			wantErr: "Invalid Root Vector",
+		},
+		{
+			name: "Invalid Frame Vector",
+			modify: func(p *SyncPacket) {
+				p.RootVector = VECTOR_ROOT_E131_EXTENDED // reset to valid
+				p.FrameVector = 0x9999
+			},
+			wantErr: "Invalid Frame Vector",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewSyncPacket()
+			tt.modify(p)
+
+			err := p.validate()
+			if err == nil {
+				t.Fatalf("expected error but got nil")
+			}
+			if err.Error() != tt.wantErr {
+				t.Fatalf("unexpected error message:\n- want: %s\n-  got: %s", tt.wantErr, err.Error())
+			}
+		})
+	}
+}
+
+func TestSyncPacketUnmarshalBinaryErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		bytes   []byte
+		wantErr string
+	}{
+		{
+			name:    "Empty buffer",
+			bytes:   []byte{},
+			wantErr: "Root layer length incorrect",
+		},
+		{
+			name: "Frame length mismatch",
+			bytes: func() []byte {
+				p := NewSyncPacket()
+				b, _ := p.MarshalBinary()
+				// Corrupt frame length (at bytes 38:40)
+				b[38] = 0xFF
+				b[39] = 0xFF
+				return b
+			}(),
+			wantErr: "Incorrect packet size",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var p SyncPacket
+			err := p.UnmarshalBinary(tt.bytes)
+			if err == nil {
+				t.Fatalf("expected error but got nil")
+			}
+		})
+	}
+}

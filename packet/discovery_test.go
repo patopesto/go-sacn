@@ -170,3 +170,80 @@ func TestDiscoveryPacketSourceName(t *testing.T) {
 		t.Fatalf("No error returned with source name too long")
 	}
 }
+
+func TestDiscoveryPacketValidateErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		modify  func(*DiscoveryPacket)
+		wantErr string
+	}{
+		{
+			name: "Invalid Root Vector",
+			modify: func(p *DiscoveryPacket) {
+				p.RootVector = 0x9999
+			},
+			wantErr: "Invalid Root Vector",
+		},
+		{
+			name: "Invalid Frame Vector",
+			modify: func(p *DiscoveryPacket) {
+				p.RootVector = VECTOR_ROOT_E131_EXTENDED // reset to valid
+				p.FrameVector = 0x9999
+			},
+			wantErr: "Invalid Frame Vector",
+		},
+		{
+			name: "Invalid Discovery Vector",
+			modify: func(p *DiscoveryPacket) {
+				p.FrameVector = VECTOR_E131_EXTENDED_DISCOVERY // reset to valid
+				p.UDLVector = 0x9999
+			},
+			wantErr: "Invalid Discovery Vector",
+		},
+		{
+			name: "Page > Last",
+			modify: func(p *DiscoveryPacket) {
+				p.UDLVector = VECTOR_UNIVERSE_DISCOVERY_UNIVERSE_LIST // reset to valid
+				p.Page = 5
+				p.Last = 3
+			},
+			wantErr: "Current page > Last page",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := NewDiscoveryPacket()
+			tt.modify(p)
+
+			err := p.validate()
+			if err == nil {
+				t.Fatalf("expected error but got nil")
+			}
+			if err.Error() != tt.wantErr {
+				t.Fatalf("unexpected error message:\n- want: %s\n-  got: %s", tt.wantErr, err.Error())
+			}
+		})
+	}
+}
+
+func TestDiscoveryPacketAddUniverseFull(t *testing.T) {
+	p := NewDiscoveryPacket()
+
+	// Add 512 universes
+	for i := 0; i < 512; i++ {
+		err := p.AddUniverse(uint16(i + 1))
+		if err != nil {
+			t.Fatalf("unexpected error adding universe %d: %v", i+1, err)
+		}
+	}
+
+	// Adding one more should fail
+	err := p.AddUniverse(513)
+	if err == nil {
+		t.Fatalf("expected error when adding universe to full list")
+	}
+	if err.Error() != "Universe list is full, please create a new DiscoveryPacket with the next page" {
+		t.Fatalf("unexpected error message: %s", err.Error())
+	}
+}

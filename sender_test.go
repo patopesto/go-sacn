@@ -470,3 +470,45 @@ func TestSenderSendLoopSyncPacket(t *testing.T) {
 	// Give some time for packet to be processed
 	time.Sleep(50 * time.Millisecond)
 }
+
+func TestSenderSendLoopDiscoveryPacket(t *testing.T) {
+	options := &SenderOptions{
+		CID:        [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SourceName: "Test Source",
+	}
+
+	sender, err := NewSender("127.0.0.1", options)
+	if err != nil {
+		t.Fatalf("Failed to create sender: %v", err)
+	}
+	defer sender.Close()
+
+	ch, err := sender.StartUniverse(1)
+	if err != nil {
+		t.Fatalf("Failed to start universe: %v", err)
+	}
+
+	// Send a discovery packet (technically this shouldn't happen in normal operation)
+	p := packet.NewDiscoveryPacket()
+	p.CID = [16]byte{}          // Empty CID should be filled by sender
+	p.SetSourceName("")         // Empty source name should be filled by sender
+	p.SetUniverses([]uint16{1}) // Add a universe
+
+	ch <- p
+
+	// Give some time for packet to be processed
+	time.Sleep(50 * time.Millisecond)
+}
+
+func TestSenderNewSenderInvalidAddress(t *testing.T) {
+	options := &SenderOptions{
+		CID:        [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SourceName: "Test Source",
+	}
+
+	// Try to create sender with invalid address
+	_, err := NewSender("invalid-address", options)
+	if err == nil {
+		t.Fatalf("Expected error for invalid address")
+	}
+}

@@ -446,3 +446,89 @@ func TestReceiverHandleSyncPacket(t *testing.T) {
 		t.Errorf("Sync packet should be stored at sync address")
 	}
 }
+
+func TestReceiverLeaveUniverseError(t *testing.T) {
+	iface := getTestInterface(t)
+
+	receiver, err := NewReceiver(iface)
+	if err != nil {
+		t.Fatalf("Failed to create receiver: %v", err)
+	}
+	defer func() {
+		if receiver.stop != nil {
+			receiver.Stop()
+		} else {
+			receiver.conn.Close()
+		}
+	}()
+
+	// Try to leave a universe that was never joined
+	// This may or may not return an error depending on the OS
+	err = receiver.LeaveUniverse(9999)
+	// We just verify it doesn't panic - the actual error behavior
+	// depends on the underlying network implementation
+	_ = err
+}
+
+func TestReceiverRegisterCallbackOverwrite(t *testing.T) {
+	iface := getTestInterface(t)
+
+	receiver, err := NewReceiver(iface)
+	if err != nil {
+		t.Fatalf("Failed to create receiver: %v", err)
+	}
+	defer receiver.Stop()
+
+	callback1Called := make(chan bool, 1)
+	callback2Called := make(chan bool, 1)
+
+	// Register first callback
+	receiver.RegisterPacketCallback(packet.PacketTypeData, func(p packet.SACNPacket, info PacketInfo) {
+		callback1Called <- true
+	})
+
+	// Verify first callback is registered
+	if receiver.packetCallbacks[packet.PacketTypeData] == nil {
+		t.Errorf("First callback should be registered")
+	}
+
+	// Register second callback (should overwrite first)
+	receiver.RegisterPacketCallback(packet.PacketTypeData, func(p packet.SACNPacket, info PacketInfo) {
+		callback2Called <- true
+	})
+
+	// Verify second callback is registered
+	if receiver.packetCallbacks[packet.PacketTypeData] == nil {
+		t.Errorf("Second callback should be registered")
+	}
+
+	// Create a data packet
+	p := packet.NewDataPacket()
+	p.Universe = 1
+	p.SetData([]byte{255, 255, 255})
+
+	info := PacketInfo{
+		Source: net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5568},
+		Mode:   PacketUnicast,
+	}
+
+	receiver.handlePacket(p, info)
+
+	// Verify second callback was called, not first
+	select {
+	case <-callback1Called:
+		t.Errorf("First callback should NOT have been called (was overwritten)")
+	case <-callback2Called:
+		// Expected
+	case <-time.After(100 * time.Millisecond):
+		t.Errorf("Second callback should have been called")
+	}
+
+	// Verify first callback was not called
+	select {
+	case <-callback1Called:
+		t.Errorf("First callback should NOT have been called (was overwritten)")
+	default:
+		// Expected - no message on channel
+	}
+}
