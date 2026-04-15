@@ -12,7 +12,7 @@ import (
 // This test requires proper network setup and may fail in certain environments
 func TestSenderReceiverIntegration(t *testing.T) {
 	if testing.Short() {
-	    t.Skip("Skipping integration test in short mode")
+		t.Skip("Skipping integration test in short mode")
 	}
 
 	iface := getTestInterface(t)
@@ -105,9 +105,9 @@ func TestSenderReceiverIntegration(t *testing.T) {
 // Discovery packets are sent automatically to universe 64214 to announce active universes
 func TestSenderDiscoveryPacketIntegration(t *testing.T) {
 	if testing.Short() {
-	    t.Skip("Skipping integration test in short mode")
+		t.Skip("Skipping integration test in short mode")
 	}
-	
+
 	iface := getTestInterface(t)
 
 	// Create a receiver that will listen for discovery packets
