@@ -41,7 +41,7 @@ fmt:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
 
 test:
   stage: test
@@ -62,7 +62,7 @@ test:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
 
 release:
   stage: release
@@ -74,8 +74,8 @@ release:
   tags:
     - docker
   variables:
-    # Disable shallow cloning so that goreleaser can diff between tags to generate a changelog.
-    GIT_DEPTH: 0
+    GITLAB_TOKEN: ${CI_JOB_TOKEN} # Needed to create GitLab releases.
+    GIT_DEPTH: 0                  # Disable shallow cloning so that goreleaser can diff between tags to generate a changelog.
   script:
     - goreleaser release --clean
   rules:
