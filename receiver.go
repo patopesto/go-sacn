@@ -6,6 +6,7 @@ import (
 	"golang.org/x/net/ipv4"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/libp2p/go-reuseport"
@@ -44,6 +45,7 @@ type Receiver struct {
 	conn *ipv4.PacketConn
 	itf  *net.Interface
 	stop chan bool
+	stopOnce sync.Once
 
 	lastPackets      map[uint16]networkPacket
 	streamTerminated map[uint16]bool
@@ -80,7 +82,6 @@ func NewReceiver(itf *net.Interface) (*Receiver, error) {
 
 // Starts the receiver
 func (r *Receiver) Start() {
-
 	r.stop = make(chan bool)
 
 	go r.recvLoop()
@@ -89,7 +90,9 @@ func (r *Receiver) Start() {
 // Stops the receiver
 func (r *Receiver) Stop() {
 	if r.stop != nil {
-		close(r.stop)
+		r.stopOnce.Do(func() {
+			close(r.stop)
+		})
 	}
 }
 

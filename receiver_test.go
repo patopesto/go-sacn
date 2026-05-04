@@ -96,10 +96,10 @@ func TestReceiverStartStop(t *testing.T) {
 	// Give it time to start
 	time.Sleep(50 * time.Millisecond)
 
-	// Stop receiver - FIXME: calling Stop multiple times should not panic
+	// Stop receiver multiple times should not panic
 	receiver.Stop()
-	// receiver.Stop()
-	// receiver.Stop()
+	receiver.Stop()
+	receiver.Stop()
 
 	// Test passed if no panic occurred
 }
