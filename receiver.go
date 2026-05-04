@@ -42,13 +42,14 @@ type TerminationCallbackFunc func(universe uint16)
 
 // A sACN Receiver. Use [NewReceiver] to create a receiver.
 type Receiver struct {
-	conn *ipv4.PacketConn
-	itf  *net.Interface
-	stop chan bool
+	conn     *ipv4.PacketConn
+	itf      *net.Interface
+	stop     chan bool
 	stopOnce sync.Once
 
 	lastPackets      map[uint16]networkPacket
 	streamTerminated map[uint16]bool
+	subscribed       map[uint16]struct{}
 
 	packetCallbacks     map[packet.SACNPacketType]PacketCallbackFunc
 	terminationCallback TerminationCallbackFunc
@@ -75,6 +76,7 @@ func NewReceiver(itf *net.Interface) (*Receiver, error) {
 
 	r.lastPackets = make(map[uint16]networkPacket)
 	r.streamTerminated = make(map[uint16]bool)
+	r.subscribed = make(map[uint16]struct{})
 	r.packetCallbacks = make(map[packet.SACNPacketType]PacketCallbackFunc)
 
 	return r, nil
@@ -107,6 +109,7 @@ func (r *Receiver) JoinUniverse(universe uint16) error {
 	if err != nil {
 		return errors.New(fmt.Sprintf("Could not join multicast group for universe %v: %v", universe, err))
 	}
+	r.subscribed[universe] = struct{}{}
 	return nil
 }
 
@@ -117,6 +120,7 @@ func (r *Receiver) LeaveUniverse(universe uint16) error {
 	if err != nil {
 		return errors.New(fmt.Sprintf("Could not leave multicast group for universe %v: %v", universe, err))
 	}
+	delete(r.subscribed, universe)
 	return nil
 }
 
@@ -136,7 +140,13 @@ func (r *Receiver) RegisterTerminationCallback(callback TerminationCallbackFunc)
 }
 
 func (r *Receiver) recvLoop() {
-	defer r.conn.Close()
+	defer func() {
+		// IGMP leave multicast universes
+		for universe := range r.subscribed {
+			_ = r.LeaveUniverse(universe)
+		}
+		r.conn.Close()
+	}()
 
 	for {
 		select {
@@ -182,7 +192,6 @@ func (r *Receiver) recvLoop() {
 
 			r.handlePacket(p, info)
 		}
-
 	}
 }
 
