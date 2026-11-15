@@ -2,7 +2,6 @@
 
 [![documentation](https://pkg.go.dev/badge/gitlab.com/patopest/go-sacn.svg)](https://pkg.go.dev/gitlab.com/patopest/go-sacn)
 [![lib version](https://img.shields.io/gitlab/v/tag/patopest%2Fgo-sacn?label=latest)](https://gitlab.com/patopest/go-sacn/-/tags)
-[![report](https://goreportcard.com/badge/gitlab.com/patopest/go-sacn)](https://goreportcard.com/report/gitlab.com/patopest/go-sacn)
 ![coverage](https://gitlab.com/patopest/go-sacn/badges/master/coverage.svg)
 [![license](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
